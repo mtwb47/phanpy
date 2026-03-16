@@ -5,11 +5,11 @@ WORKDIR /app
 
 # Install dependencies first (better caching)
 COPY package.json package-lock.json* ./
-RUN npm install
+RUN npm install --ignore-scripts
 
-# Copy source and build
+# Copy source and run postinstall + build
 COPY . .
-RUN npm run build
+RUN npm run postinstall && npm run build
 
 # Production stage - serve with nginx
 FROM nginx:alpine AS production
@@ -29,12 +29,9 @@ FROM node:22-alpine AS development
 
 WORKDIR /app
 
-# Install dependencies
-COPY package.json package-lock.json* ./
-RUN npm install
-
-# Copy source
+# Copy everything and install
 COPY . .
+RUN npm install
 
 EXPOSE 5173
 
