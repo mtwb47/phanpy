@@ -11,7 +11,7 @@ import {
   useState,
 } from 'preact/hooks';
 
-import { api } from '../utils/api';
+import { api, getAdapter, isBlueskyAccount } from '../utils/api';
 import enhanceContent from '../utils/enhance-content';
 import getDomain from '../utils/get-domain';
 import handleContentLinks from '../utils/handle-content-links';
@@ -140,10 +140,13 @@ function AccountInfo({
   showEndorsements = false,
 }) {
   const { i18n, t } = useLingui();
-  const { masto, authenticated: currentAuthenticated } = api({
-    instance,
-  });
-  const { masto: currentMasto, instance: currentInstance } = api();
+  const isBluesky = isBlueskyAccount();
+  const { masto, authenticated: currentAuthenticated } = isBluesky
+    ? { masto: null, authenticated: true }
+    : api({ instance });
+  const { masto: currentMasto, instance: currentInstance } = isBluesky
+    ? { masto: null, instance: 'bsky.social' }
+    : api();
   const [uiState, setUIState] = useState('default');
   const isString = typeof account === 'string';
   const [info, setInfo] = useState(isString ? null : account);
@@ -161,7 +164,13 @@ function AccountInfo({
     setUIState('loading');
     (async () => {
       try {
-        const info = await fetchAccount();
+        let info;
+        if (isBluesky) {
+          const adapter = await getAdapter();
+          info = await adapter.getAccount(account);
+        } else {
+          info = await fetchAccount();
+        }
         states.accounts[`${info.id}@${instance}`] = info;
         setInfo(info);
         setUIState('default');
@@ -171,7 +180,7 @@ function AccountInfo({
         setUIState('error');
       }
     })();
-  }, [isString, account, fetchAccount]);
+  }, [isString, account, fetchAccount, isBluesky]);
 
   const {
     acct,

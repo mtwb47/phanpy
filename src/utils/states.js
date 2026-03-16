@@ -2,7 +2,7 @@ import { deepEqual } from 'fast-equals';
 import { proxy, subscribe } from 'valtio';
 import { subscribeKey } from 'valtio/utils';
 
-import { api } from './api';
+import { api, isBlueskyAccount } from './api';
 import isMastodonLinkMaybe from './isMastodonLinkMaybe';
 import pmem from './pmem';
 import rateLimit from './ratelimit';
@@ -293,6 +293,9 @@ export function saveStatus(status, instance, opts) {
 }
 
 function _threadifyStatus(status, propInstance) {
+  // Skip threadifying for Bluesky (uses Mastodon API)
+  if (isBlueskyAccount()) return Promise.resolve();
+
   const { masto, instance } = api({ instance: propInstance });
   // Return all statuses in the thread, via inReplyToId, if inReplyToAccountId === account.id
   let fetchIndex = 0;
@@ -335,6 +338,9 @@ export const threadifyStatus = rateLimit(_threadifyStatus, 100);
 
 const fauxDiv = document.createElement('div');
 export function unfurlStatus(status, instance) {
+  // Skip unfurling for Bluesky (uses Mastodon search API)
+  if (isBlueskyAccount()) return;
+
   const { instance: currentInstance } = api();
   const content = status?.content;
   const hasLink = /<a/i.test(content);

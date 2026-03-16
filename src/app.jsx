@@ -62,6 +62,7 @@ import {
   initClient,
   initInstance,
   initPreferences,
+  isBlueskyAccount,
 } from './utils/api';
 import { getAccessToken } from './utils/auth';
 import { AuthProvider, useAuth } from './utils/auth-context';
@@ -515,30 +516,42 @@ function App() {
       }
       if (account) {
         setCurrentAccountID(account.info.id);
-        const { client } = api({ account });
-        const { instance } = client;
-        // console.log('masto', masto);
         initStates();
         setUIState('loading');
-        (async () => {
-          try {
-            if (hasPreferences() && hasInstance(instance)) {
-              // Non-blocking
-              initPreferences(client);
-              initInstance(client, instance);
-            } else {
-              await Promise.allSettled([
-                initPreferences(client),
-                initInstance(client, instance),
-              ]);
+
+        // Check if this is a Bluesky account
+        const isBluesky = isBlueskyAccount(account);
+
+        if (isBluesky) {
+          // Bluesky accounts don't need Mastodon instance/preferences init
+          setIsLoggedIn(true);
+          setUIState('default');
+          __BENCHMARK.end('app-init');
+        } else {
+          // Mastodon account initialization
+          const { client } = api({ account });
+          const { instance } = client;
+          // console.log('masto', masto);
+          (async () => {
+            try {
+              if (hasPreferences() && hasInstance(instance)) {
+                // Non-blocking
+                initPreferences(client);
+                initInstance(client, instance);
+              } else {
+                await Promise.allSettled([
+                  initPreferences(client),
+                  initInstance(client, instance),
+                ]);
+              }
+            } catch (e) {
+            } finally {
+              setIsLoggedIn(true);
+              setUIState('default');
+              __BENCHMARK.end('app-init');
             }
-          } catch (e) {
-          } finally {
-            setIsLoggedIn(true);
-            setUIState('default');
-            __BENCHMARK.end('app-init');
-          }
-        })();
+          })();
+        }
       } else {
         setUIState('default');
         __BENCHMARK.end('app-init');

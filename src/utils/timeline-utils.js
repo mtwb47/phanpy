@@ -1,4 +1,4 @@
-import { api } from './api';
+import { api, isBlueskyAccount } from './api';
 import { isFiltered } from './filters';
 import { extractTagsFromStatus, getFollowedTags } from './followed-tags';
 import pmem from './pmem';
@@ -227,8 +227,8 @@ export function groupContext(items, instance) {
     newItems.push(item);
   });
 
-  // FETCH AND SHOW REPLY HINTS
-  if (inReplyToIds?.length) {
+  // FETCH AND SHOW REPLY HINTS (Mastodon only - Bluesky doesn't support batch status fetch)
+  if (inReplyToIds?.length && !isBlueskyAccount()) {
     queueMicrotask(() => {
       const { masto } = api({ instance });
       console.log('REPLYHINT', inReplyToIds);

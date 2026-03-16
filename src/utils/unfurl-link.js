@@ -1,7 +1,7 @@
 import PQueue from 'p-queue';
 import { snapshot } from 'valtio/vanilla';
 
-import { api } from './api';
+import { api, isBlueskyAccount } from './api';
 import getDomain from './get-domain';
 import states, { saveStatus } from './states';
 
@@ -28,6 +28,10 @@ function getStatusID(path) {
 const denylistDomains = /(twitter|github)\.com/i;
 const failedUnfurls = {};
 function _unfurlMastodonLink(instance, url) {
+  // Skip unfurling for Bluesky accounts (uses Mastodon search API)
+  if (isBlueskyAccount()) {
+    return;
+  }
   const snapStates = snapshot(states);
   if (denylistDomains.test(url)) {
     return;
