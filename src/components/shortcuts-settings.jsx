@@ -338,7 +338,9 @@ function ShortcutsSettings({ onClose }) {
         {shortcuts.length > 0 ? (
           <>
             <ol class="shortcuts-list" ref={shortcutsListParent}>
-              {shortcuts.filter(Boolean).map((shortcut, i) => {
+              {shortcuts.map((shortcut, i) => {
+                // Skip null/undefined entries but keep original index
+                if (!shortcut) return null;
                 // Use index in key to ensure uniqueness even for shortcuts with same values
                 const key = `${i}-${Object.values(shortcut).join('-')}`;
                 const { type } = shortcut;
@@ -387,10 +389,11 @@ function ShortcutsSettings({ onClose }) {
                         class="plain small"
                         disabled={i === 0}
                         onClick={() => {
-                          const shortcutsArr = Array.from(states.shortcuts);
+                          // Deep copy to avoid valtio proxy issues
+                          const shortcutsArr = states.shortcuts.map(s => s ? { ...s } : null);
                           if (i > 0) {
-                            const temp = states.shortcuts[i - 1];
-                            shortcutsArr[i - 1] = shortcut;
+                            const temp = shortcutsArr[i - 1];
+                            shortcutsArr[i - 1] = shortcutsArr[i];
                             shortcutsArr[i] = temp;
                             states.shortcuts = shortcutsArr;
                           }
@@ -403,10 +406,11 @@ function ShortcutsSettings({ onClose }) {
                         class="plain small"
                         disabled={i === shortcuts.length - 1}
                         onClick={() => {
-                          const shortcutsArr = Array.from(states.shortcuts);
-                          if (i < states.shortcuts.length - 1) {
-                            const temp = states.shortcuts[i + 1];
-                            shortcutsArr[i + 1] = shortcut;
+                          // Deep copy to avoid valtio proxy issues
+                          const shortcutsArr = states.shortcuts.map(s => s ? { ...s } : null);
+                          if (i < shortcutsArr.length - 1) {
+                            const temp = shortcutsArr[i + 1];
+                            shortcutsArr[i + 1] = shortcutsArr[i];
                             shortcutsArr[i] = temp;
                             states.shortcuts = shortcutsArr;
                           }
@@ -528,14 +532,19 @@ function ShortcutsSettings({ onClose }) {
           }}
         >
           <ShortcutForm
+            // Key ensures fresh component instance when editing different shortcuts
+            key={`form-${showForm.shortcutIndex ?? 'new'}-${Date.now()}`}
             shortcut={showForm.shortcut}
             shortcutIndex={showForm.shortcutIndex}
             onSubmit={({ result, mode }) => {
-              console.log('onSubmit', result);
+              console.log('onSubmit', result, 'mode:', mode, 'index:', showForm.shortcutIndex);
               if (mode === 'edit') {
-                states.shortcuts[showForm.shortcutIndex] = result;
+                // Create a fresh copy to ensure no proxy references
+                const updatedShortcuts = [...states.shortcuts];
+                updatedShortcuts[showForm.shortcutIndex] = { ...result };
+                states.shortcuts = updatedShortcuts;
               } else {
-                states.shortcuts.push(result);
+                states.shortcuts = [...states.shortcuts, { ...result }];
               }
             }}
             onClose={() => setShowForm(false)}
