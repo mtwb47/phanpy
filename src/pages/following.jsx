@@ -26,9 +26,16 @@ function Following({ title, path, id, ...props }) {
       }),
     path || '/following',
   );
-  const { masto, streaming, instance, client } = api();
-  const [streamingClient, setStreamingClient] = useState(streaming);
+
+  // Check platform first before calling api()
   const isBluesky = isBlueskyAccount();
+  console.log('Following page - isBluesky:', isBluesky);
+
+  // Only get Mastodon API client if not Bluesky
+  const { masto, streaming, instance, client } = isBluesky
+    ? { masto: null, streaming: null, instance: 'bsky.social', client: null }
+    : api();
+  const [streamingClient, setStreamingClient] = useState(streaming);
   const adapterRef = useRef();
   const cursorRef = useRef();
 
