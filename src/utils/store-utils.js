@@ -306,31 +306,21 @@ export function resolveAccountByKey(accountKey) {
 
   const accounts = getAccounts();
 
-  console.warn('🔑 resolveAccountByKey:', {
-    accountKey,
-    isDID: accountKey.startsWith('did:'),
-    accountCount: accounts.length,
-    accountPlatforms: accounts.map(a => ({ username: a.info?.username, platform: a.platform, did: a.did })),
-  });
-
   // Check if it's a Bluesky DID
   if (accountKey.startsWith('did:')) {
-    const found = accounts.find((a) => a.did === accountKey) || null;
-    console.warn('🔑 resolveAccountByKey DID result:', { found: !!found, foundPlatform: found?.platform });
-    return found;
+    return accounts.find((a) => a.did === accountKey) || null;
   }
 
   // Otherwise it's id@instance format
   const [id, instance] = accountKey.split('@');
   if (!id || !instance) return null;
 
-  const found = accounts.find(
-    (a) =>
-      a.info.id === id &&
-      a.instanceURL.replace(/^https?:\/\//, '').toLowerCase() ===
-        instance.toLowerCase(),
-  ) || null;
-
-  console.warn('🔑 resolveAccountByKey id@instance result:', { found: !!found, foundPlatform: found?.platform });
-  return found;
+  return (
+    accounts.find(
+      (a) =>
+        a.info.id === id &&
+        a.instanceURL.replace(/^https?:\/\//, '').toLowerCase() ===
+          instance.toLowerCase(),
+    ) || null
+  );
 }

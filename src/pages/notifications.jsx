@@ -117,16 +117,6 @@ function Notifications({ columnMode, columnAccount }) {
     ? isBlueskyAccount(targetAccount)
     : isBlueskyAccount();
 
-  console.warn('🔔 Notifications component DEBUG:', {
-    columnMode,
-    columnAccountExists: !!columnAccount,
-    targetAccountExists: !!targetAccount,
-    isBluesky,
-    columnAccountPlatform: columnAccount?.platform,
-    columnAccountDid: columnAccount?.did,
-    columnAccountInstanceURL: columnAccount?.instanceURL,
-  });
-
   // Use columnAccount if provided for column-specific API calls
   const { masto, instance } = isBluesky
     ? { masto: null, instance: targetAccount?.instanceURL || 'bsky.social' }
@@ -178,8 +168,8 @@ function Notifications({ columnMode, columnAccount }) {
           }
         });
 
-        // Group similar notifications (simplified for Bluesky)
-        const groupedNotifications = getGroupedNotifications(notifications);
+        // Group similar notifications (use client-side grouping for Bluesky)
+        const groupedNotifications = groupNotifications(notifications);
 
         if (firstLoad) {
           states.notificationsLast = groupedNotifications[0];
