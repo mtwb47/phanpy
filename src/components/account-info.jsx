@@ -12,6 +12,7 @@ import {
 } from 'preact/hooks';
 
 import { api, getAdapter, isBlueskyAccount } from '../utils/api';
+import { detectPlatform, PLATFORM_BLUESKY } from '../utils/platforms/index.js';
 import enhanceContent from '../utils/enhance-content';
 import getDomain from '../utils/get-domain';
 import handleContentLinks from '../utils/handle-content-links';
@@ -140,11 +141,19 @@ function AccountInfo({
   showEndorsements = false,
 }) {
   const { i18n, t } = useLingui();
-  const isBluesky = isBlueskyAccount();
-  const { masto, authenticated: currentAuthenticated } = isBluesky
+  // Check if current account is Bluesky
+  const currentAccountIsBluesky = isBlueskyAccount();
+  // Check if the account being viewed is Bluesky (based on instance or identifier)
+  const viewingBlueskyAccount =
+    currentAccountIsBluesky ||
+    detectPlatform(instance) === PLATFORM_BLUESKY ||
+    (typeof account === 'string' && detectPlatform(account) === PLATFORM_BLUESKY) ||
+    account?._platform === PLATFORM_BLUESKY;
+
+  const { masto, authenticated: currentAuthenticated } = viewingBlueskyAccount
     ? { masto: null, authenticated: true }
     : api({ instance });
-  const { masto: currentMasto, instance: currentInstance } = isBluesky
+  const { masto: currentMasto, instance: currentInstance } = viewingBlueskyAccount
     ? { masto: null, instance: 'bsky.social' }
     : api();
   const [uiState, setUIState] = useState('default');
@@ -161,13 +170,25 @@ function AccountInfo({
       setInfo(account);
       return;
     }
+
+    // For Bluesky, if current account is not Bluesky, skip fetching
+    // (cross-platform profile viewing not yet supported)
+    if (viewingBlueskyAccount && !currentAccountIsBluesky) {
+      setUIState('default');
+      return;
+    }
+
     setUIState('loading');
     (async () => {
       try {
         let info;
-        if (isBluesky) {
+        if (currentAccountIsBluesky) {
           const adapter = await getAdapter();
-          info = await adapter.getAccount(account);
+          // Extract handle from account string if needed
+          const handle = account.includes('@')
+            ? account.split('@')[0]
+            : account;
+          info = await adapter.getAccount(handle);
         } else {
           info = await fetchAccount();
         }
@@ -180,7 +201,7 @@ function AccountInfo({
         setUIState('error');
       }
     })();
-  }, [isString, account, fetchAccount, isBluesky]);
+  }, [isString, account, fetchAccount, currentAccountIsBluesky, viewingBlueskyAccount]);
 
   const {
     acct,
