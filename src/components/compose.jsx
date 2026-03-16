@@ -48,7 +48,7 @@ import visibilityText from '../utils/visibility-text';
 
 import AccountBlock from './account-block';
 // import Avatar from './avatar';
-import ComposeAccountSelector, { getAccountKey as getComposeAccountKey } from './compose-account-selector';
+import ComposeAccountSelector from './compose-account-selector';
 import CameraCaptureInput, {
   supportsCameraCapture,
 } from './camera-capture-input';
