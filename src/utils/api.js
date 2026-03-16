@@ -3,11 +3,14 @@ import { createRestAPIClient, createStreamingAPIClient } from 'masto';
 
 import mem from '../utils/mem';
 
+import { createAdapter } from './platforms/index.js';
+import { PLATFORM_BLUESKY, PLATFORM_MASTODON } from './platforms/types.js';
 import store from './store';
 import {
   getAccount,
   getAccountByAccessToken,
   getAccountByInstance,
+  getAccountPlatform,
   getCurrentAcc,
   saveAccount,
   setCurrentAccountID,
@@ -404,3 +407,60 @@ window.__API__ = {
   apis,
   accountApis,
 };
+
+// Platform adapter cache
+const platformAdapters = {};
+
+/**
+ * Get a platform adapter for the current or specified account
+ * @param {Object} options
+ * @returns {Promise<import('./platforms/types.js').PlatformAdapter>}
+ */
+export async function getAdapter({ account, accountID } = {}) {
+  const targetAccount = account || getAccount(accountID) || getCurrentAcc();
+  if (!targetAccount) {
+    throw new Error('No account available');
+  }
+
+  const platform = getAccountPlatform(targetAccount);
+  const cacheKey = `${targetAccount.info.id}@${targetAccount.instanceURL}`;
+
+  // Return cached adapter if available
+  if (platformAdapters[cacheKey]) {
+    return platformAdapters[cacheKey];
+  }
+
+  // Create and cache new adapter
+  const adapter = await createAdapter(targetAccount);
+  platformAdapters[cacheKey] = adapter;
+
+  return adapter;
+}
+
+/**
+ * Clear adapter cache for an account
+ * @param {string} accountId
+ * @param {string} instanceURL
+ */
+export function clearAdapterCache(accountId, instanceURL) {
+  const cacheKey = `${accountId}@${instanceURL}`;
+  delete platformAdapters[cacheKey];
+}
+
+/**
+ * Check if current account is Bluesky
+ * @returns {boolean}
+ */
+export function isBlueskyAccount(account) {
+  const acc = account || getCurrentAcc();
+  return getAccountPlatform(acc) === PLATFORM_BLUESKY;
+}
+
+/**
+ * Check if current account is Mastodon
+ * @returns {boolean}
+ */
+export function isMastodonAccount(account) {
+  const acc = account || getCurrentAcc();
+  return getAccountPlatform(acc) === PLATFORM_MASTODON;
+}

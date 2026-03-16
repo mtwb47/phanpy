@@ -60,3 +60,44 @@
   color: var(--text-insignificant-color);
   font-style: italic;
 }
+
+/* Platform selector tabs */
+.platform-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 0.5em;
+  margin-bottom: 1.5em;
+}
+
+.platform-tabs button {
+  padding: 0.5em 1em;
+  border-radius: 999px;
+  font-weight: 500;
+  transition: all 0.2s ease-in-out;
+}
+
+.platform-tabs button.active {
+  background-color: var(--link-color);
+  color: var(--bg-color);
+}
+
+.platform-tabs button:not(.active):hover {
+  background-color: var(--bg-faded-color);
+}
+
+/* Bluesky login form */
+.bluesky-login-form label {
+  display: block;
+  margin-bottom: 1em;
+}
+
+.bluesky-login-form .help-text {
+  display: block;
+  margin-top: 0.5em;
+  color: var(--text-insignificant-color);
+  font-size: 85%;
+}
+
+.bluesky-login-form .help-text a {
+  color: var(--link-color);
+}

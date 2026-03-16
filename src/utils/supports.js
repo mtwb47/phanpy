@@ -2,7 +2,13 @@ import { satisfies } from 'compare-versions';
 
 import features from '../data/features.json';
 
-import { getCurrentInstance, getCurrentNodeInfo } from './store-utils';
+import { PLATFORM_BLUESKY, PLATFORM_MASTODON } from './platforms/types.js';
+import {
+  getAccountPlatform,
+  getCurrentAcc,
+  getCurrentInstance,
+  getCurrentNodeInfo,
+} from './store-utils';
 
 // Non-semver(?) UA string detection
 const containPixelfed = /pixelfed/i;
@@ -28,6 +34,22 @@ const platformFeatures = {
   '@akkoma/local-visibility-post': containAkkoma,
 };
 
+// Bluesky-specific feature support
+const blueskyFeatures = {
+  '@bluesky/quote-posts': true,
+  '@bluesky/custom-feeds': true,
+  '@bluesky/lists': true,
+  '@bluesky/post-bookmark': false,
+  '@bluesky/post-edit': false,
+  '@bluesky/polls': false,
+  '@bluesky/content-warning': false,
+  '@bluesky/custom-emoji': false,
+  '@bluesky/streaming': false,
+  '@bluesky/scheduled-posts': false,
+  '@bluesky/pinned-posts': false,
+  '@bluesky/filters': false,
+};
+
 const supportsCache = {};
 
 const semverExtract = /^\d+\.\d+(\.\d+)?/;
@@ -35,6 +57,37 @@ const atSoftwareSlashMatch = /^@([a-z]+)\//i;
 
 function supports(feature) {
   try {
+    // Check platform type first (Bluesky vs Mastodon-compatible)
+    const currentAccount = getCurrentAcc();
+    const platform = getAccountPlatform(currentAccount);
+
+    // Handle Bluesky platform
+    if (platform === PLATFORM_BLUESKY) {
+      // Check for Bluesky-specific feature
+      if (feature.startsWith('@bluesky/')) {
+        return blueskyFeatures[feature] ?? false;
+      }
+      // Map Mastodon feature queries to Bluesky equivalents
+      const mastodonToBlueskyMap = {
+        '@mastodon/post-bookmark': false,
+        '@mastodon/post-edit': false,
+        '@mastodon/lists': true,
+        '@mastodon/filters': false,
+        '@mastodon/pinned-posts': false,
+        '@mastodon/trending-hashtags': false,
+        '@mastodon/trending-links': false,
+      };
+      if (feature in mastodonToBlueskyMap) {
+        return mastodonToBlueskyMap[feature];
+      }
+      // Platform check
+      if (feature === '@bluesky') return true;
+      if (feature === '@mastodon') return false;
+      // Default to false for unknown features on Bluesky
+      return false;
+    }
+
+    // Original Mastodon-compatible logic
     let { version, domain } = getCurrentInstance();
     let softwareName = getCurrentNodeInfo()?.software?.name || 'mastodon';
 

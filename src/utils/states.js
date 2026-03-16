@@ -191,6 +191,10 @@ export function hideAllModals() {
 
 export function statusKey(id, instance) {
   if (!id) return;
+  // AT URIs are globally unique, no instance prefix needed
+  if (typeof id === 'string' && id.startsWith('at://')) {
+    return id;
+  }
   return instance ? `${instance}/${id}` : id;
 }
 

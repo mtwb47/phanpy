@@ -1,4 +1,5 @@
 import mem from './mem';
+import { PLATFORM_MASTODON } from './platforms/types.js';
 import store from './store';
 
 export function getAccounts() {
@@ -14,6 +15,10 @@ export function getAccount(id) {
   const accounts = getAccounts();
   const account = id ? accounts.find((a) => a.info.id === id) : accounts[0];
   if (!account) return null;
+  // Ensure platform is set (defaults to mastodon for existing accounts)
+  if (!account.platform) {
+    account.platform = PLATFORM_MASTODON;
+  }
   const now = Date.now();
   // Only update if more than 5 mins
   if (now - account.lastAccessedAt > MINS_5) {
@@ -111,8 +116,17 @@ export function saveAccount(account) {
     acc.instanceURL = account.instanceURL;
     acc.accessToken = account.accessToken;
     acc.vapidKey = account.vapidKey;
+    acc.platform = account.platform || PLATFORM_MASTODON;
     acc.updatedAt = Date.now();
+    // Bluesky-specific fields
+    if (account.refreshJwt) acc.refreshJwt = account.refreshJwt;
+    if (account.did) acc.did = account.did;
+    if (account.pds) acc.pds = account.pds;
   } else {
+    // Ensure platform is set for new accounts
+    if (!account.platform) {
+      account.platform = PLATFORM_MASTODON;
+    }
     accounts.push(account);
   }
   saveAccounts(accounts);
@@ -234,4 +248,39 @@ export function storeCredentialApplication(instanceURL, credentialApplication) {
 export function getCredentialApplication(instanceURL) {
   const stored = store.local.getJSON(CREDENTIAL_APPLICATIONS_KEY) || {};
   return stored[instanceURL] || null;
+}
+
+/**
+ * Get account by DID (Bluesky)
+ * @param {string} did
+ * @returns {Object|null}
+ */
+export function getAccountByDID(did) {
+  const accounts = getAccounts();
+  return accounts.find((a) => a.did === did) || null;
+}
+
+/**
+ * Update Bluesky session tokens
+ * @param {string} did
+ * @param {Object} session - { accessJwt, refreshJwt }
+ */
+export function updateBlueskySession(did, session) {
+  const accounts = getAccounts();
+  const acc = accounts.find((a) => a.did === did);
+  if (acc) {
+    acc.accessToken = session.accessJwt;
+    acc.refreshJwt = session.refreshJwt;
+    acc.updatedAt = Date.now();
+    saveAccounts(accounts);
+  }
+}
+
+/**
+ * Get the platform type for an account
+ * @param {Object} account
+ * @returns {import('./platforms/types.js').PlatformType}
+ */
+export function getAccountPlatform(account) {
+  return account?.platform || PLATFORM_MASTODON;
 }
