@@ -425,16 +425,36 @@ export async function getAdapter({ account, accountID } = {}) {
   const platform = getAccountPlatform(targetAccount);
   const cacheKey = `${targetAccount.info.id}@${targetAccount.instanceURL}`;
 
+  console.log('getAdapter:', {
+    platform,
+    cacheKey,
+    cached: !!platformAdapters[cacheKey],
+    cachedKeys: Object.keys(platformAdapters),
+    accountUsername: targetAccount.info?.username
+  });
+
   // Return cached adapter if available
   if (platformAdapters[cacheKey]) {
+    console.log('Returning cached adapter:', platformAdapters[cacheKey]);
     return platformAdapters[cacheKey];
   }
 
   // Create and cache new adapter
+  console.log('Creating new adapter for platform:', platform);
   const adapter = await createAdapter(targetAccount);
   platformAdapters[cacheKey] = adapter;
+  console.log('Created adapter:', adapter);
 
   return adapter;
+}
+
+/**
+ * Clear all platform adapter caches
+ */
+export function clearAllAdapterCaches() {
+  for (const key of Object.keys(platformAdapters)) {
+    delete platformAdapters[key];
+  }
 }
 
 /**
