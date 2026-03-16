@@ -5,7 +5,7 @@ WORKDIR /app
 
 # Install dependencies first (better caching)
 COPY package.json package-lock.json* ./
-RUN npm ci
+RUN npm install
 
 # Copy source and build
 COPY . .
@@ -31,7 +31,7 @@ WORKDIR /app
 
 # Install dependencies
 COPY package.json package-lock.json* ./
-RUN npm ci
+RUN npm install
 
 # Copy source
 COPY . .
