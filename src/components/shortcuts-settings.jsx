@@ -339,8 +339,8 @@ function ShortcutsSettings({ onClose }) {
           <>
             <ol class="shortcuts-list" ref={shortcutsListParent}>
               {shortcuts.filter(Boolean).map((shortcut, i) => {
-                // const key = i + Object.values(shortcut);
-                const key = Object.values(shortcut).join('-');
+                // Use index in key to ensure uniqueness even for shortcuts with same values
+                const key = `${i}-${Object.values(shortcut).join('-')}`;
                 const { type } = shortcut;
                 if (!SHORTCUTS_META[type]) return null;
                 let { icon, title, subtitle, excludeViewMode } =

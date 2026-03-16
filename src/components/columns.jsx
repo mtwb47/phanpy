@@ -32,7 +32,7 @@ function Columns() {
 
   console.debug('RENDER Columns', shortcuts);
 
-  const components = shortcuts.map((shortcut) => {
+  const components = shortcuts.map((shortcut, shortcutIndex) => {
     if (!shortcut) return null;
     const { type, accountId, ...params } = shortcut;
     const Component = {
@@ -61,9 +61,11 @@ function Columns() {
     if (type === 'profile') {
       params.id = columnAccount?.info?.id || getCurrentAccountID();
     }
+    // Include index in key to ensure uniqueness for columns with same settings
+    const columnKey = `${shortcutIndex}-${type}-${JSON.stringify(params)}-${accountId || ''}`;
     return (
       <Component
-        key={type + JSON.stringify(params) + (accountId || '')}
+        key={columnKey}
         {...params}
         columnMode
         columnAccount={columnAccount}
