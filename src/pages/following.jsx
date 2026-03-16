@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { useSnapshot } from 'valtio';
 
 import Timeline from '../components/timeline';
-import { api } from '../utils/api';
+import { api, getAdapter, isBlueskyAccount } from '../utils/api';
 import { filteredItems } from '../utils/filters';
 import states, { getStatus, saveStatus } from '../utils/states';
 import supports from '../utils/supports';
@@ -28,26 +28,69 @@ function Following({ title, path, id, ...props }) {
   );
   const { masto, streaming, instance, client } = api();
   const [streamingClient, setStreamingClient] = useState(streaming);
+  const isBluesky = isBlueskyAccount();
+  const adapterRef = useRef();
+  const cursorRef = useRef();
 
   const snapStates = useSnapshot(states);
   const homeIterable = useRef();
   const homeIterator = useRef();
   const latestItem = useRef();
 
-  // Streaming only happens after instance is initialized
+  // Initialize adapter for Bluesky
   useEffect(() => {
-    if (!streaming && client?.onStreamingReady) {
+    if (isBluesky) {
+      getAdapter().then((adapter) => {
+        adapterRef.current = adapter;
+      });
+    }
+  }, [isBluesky]);
+
+  // Streaming only happens after instance is initialized (Mastodon only)
+  useEffect(() => {
+    if (!isBluesky && !streaming && client?.onStreamingReady) {
       client.onStreamingReady((streamingClient) => {
         setStreamingClient(streamingClient);
       });
     }
-  }, [client]);
+  }, [client, isBluesky]);
   __BENCHMARK.end('time-to-following');
 
   console.debug('RENDER Following', title, id);
   const supportsPixelfed = supports('@pixelfed/home-include-reblogs');
 
   async function fetchHome(firstLoad) {
+    // Bluesky timeline fetch
+    if (isBluesky) {
+      __BENCHMARK.start('fetch-home-first');
+      const adapter = adapterRef.current || (await getAdapter());
+      adapterRef.current = adapter;
+
+      const cursor = firstLoad ? undefined : cursorRef.current;
+      const results = await adapter.getHomeTimeline({ limit: LIMIT, cursor });
+
+      cursorRef.current = results.nextCursor;
+      let value = results.statuses;
+
+      if (value?.length) {
+        if (firstLoad) {
+          latestItem.current = value[0].id;
+        }
+        value.forEach((item) => {
+          saveStatus(item, instance);
+        });
+        value = dedupeBoosts(value, instance);
+        value.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+      }
+
+      __BENCHMARK.end('fetch-home-first');
+      return {
+        done: !results.nextCursor,
+        value,
+      };
+    }
+
+    // Mastodon timeline fetch
     if (firstLoad || !homeIterator.current) {
       __BENCHMARK.start('fetch-home-first');
       homeIterable.current = masto.v1.timelines.home.list({ limit: LIMIT });
@@ -96,6 +139,19 @@ function Following({ title, path, id, ...props }) {
 
   async function checkForUpdates() {
     try {
+      // Bluesky: simple poll for new posts
+      if (isBluesky) {
+        const adapter = adapterRef.current || (await getAdapter());
+        const results = await adapter.getHomeTimeline({ limit: 5 });
+        const value = results.statuses;
+        if (value?.length && value[0].id !== latestItem.current) {
+          latestItem.current = value[0].id;
+          return true;
+        }
+        return false;
+      }
+
+      // Mastodon
       const opts = {
         limit: 5,
         since_id: latestItem.current,
@@ -122,7 +178,10 @@ function Following({ title, path, id, ...props }) {
     }
   }
 
+  // Streaming updates (Mastodon only - Bluesky doesn't support WebSocket streaming)
   useEffect(() => {
+    if (isBluesky) return; // No streaming for Bluesky
+
     let sub;
     (async () => {
       if (streamingClient) {
@@ -149,7 +208,7 @@ function Following({ title, path, id, ...props }) {
       sub?.unsubscribe?.();
       sub = null;
     };
-  }, [streamingClient]);
+  }, [streamingClient, isBluesky]);
 
   return (
     <Timeline
