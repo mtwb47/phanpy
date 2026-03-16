@@ -7,6 +7,7 @@
 
 import { BskyAgent } from '@atproto/api';
 
+import { updateBlueskySession } from '../../store-utils';
 import { PLATFORM_BLUESKY } from '../types.js';
 
 const DEFAULT_SERVICE = 'https://bsky.social';
@@ -164,19 +165,63 @@ export async function refreshSession({ refreshJwt, service = DEFAULT_SERVICE }) 
  * @returns {Promise<BskyAgent>}
  */
 export async function createBlueskyAgent(account) {
-  const agent = new BskyAgent({
-    service: account.pds || DEFAULT_SERVICE,
-  });
+  const service = account.pds || DEFAULT_SERVICE;
+  const agent = new BskyAgent({ service });
 
   // Resume session with stored credentials
   if (account.accessToken && account.refreshJwt && account.did) {
-    await agent.resumeSession({
-      accessJwt: account.accessToken,
-      refreshJwt: account.refreshJwt,
-      handle: account.info?.username || '',
-      did: account.did,
-      active: true,
-    });
+    try {
+      await agent.resumeSession({
+        accessJwt: account.accessToken,
+        refreshJwt: account.refreshJwt,
+        handle: account.info?.username || '',
+        did: account.did,
+        active: true,
+      });
+    } catch (error) {
+      // Token might be expired, try refreshing via the API endpoint
+      if (error.message?.includes('expired') || error.status === 400 || error.status === 401) {
+        console.log('Bluesky token expired, attempting refresh...');
+        try {
+          // Call the refresh session endpoint directly
+          const refreshResponse = await fetch(`${service}/xrpc/com.atproto.server.refreshSession`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${account.refreshJwt}`,
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (!refreshResponse.ok) {
+            const errorData = await refreshResponse.json().catch(() => ({}));
+            throw new Error(errorData.message || `Refresh failed: ${refreshResponse.status}`);
+          }
+
+          const newSession = await refreshResponse.json();
+          console.log('Bluesky token refreshed successfully');
+
+          // Update stored tokens
+          updateBlueskySession(account.did, {
+            accessJwt: newSession.accessJwt,
+            refreshJwt: newSession.refreshJwt,
+          });
+
+          // Resume with new tokens
+          await agent.resumeSession({
+            accessJwt: newSession.accessJwt,
+            refreshJwt: newSession.refreshJwt,
+            handle: newSession.handle || account.info?.username || '',
+            did: newSession.did || account.did,
+            active: true,
+          });
+        } catch (refreshError) {
+          console.error('Failed to refresh Bluesky token:', refreshError);
+          throw new Error('Session expired. Please log in again to Bluesky.');
+        }
+      } else {
+        throw error;
+      }
+    }
   }
 
   return agent;

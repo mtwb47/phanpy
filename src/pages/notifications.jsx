@@ -65,8 +65,8 @@ const memSupportsGroupedNotifications = mem(
   },
 );
 
-function mastoFetchNotificationsIterable(opts = {}) {
-  const { masto } = api();
+function mastoFetchNotificationsIterable(opts = {}, mastoClient = null) {
+  const masto = mastoClient || api().masto;
   if (memSupportsGroupedNotifications()) {
     // https://github.com/mastodon/mastodon/pull/29889
     return masto.v2.notifications.list({
@@ -126,6 +126,22 @@ function Notifications({ columnMode, columnAccount }) {
   const cursorRef = useRef();
 
   const snapStates = useSnapshot(states);
+
+  // In column mode, use local state instead of global state
+  // This allows multiple notification columns with different accounts
+  const [localNotifications, setLocalNotifications] = useState([]);
+
+  // Helper to get/set notifications based on mode
+  const notifications = columnMode ? localNotifications : snapStates.notifications;
+  const setNotifications = columnMode
+    ? setLocalNotifications
+    : (newNotifications) => {
+        states.notifications = newNotifications;
+      };
+  const appendNotifications = columnMode
+    ? (newNotifications) => setLocalNotifications((prev) => [...prev, ...newNotifications])
+    : (newNotifications) => states.notifications.push(...newNotifications);
+
   const [uiState, setUIState] = useState('default');
   const [searchParams] = columnMode ? [emptySearchParams] : useSearchParams();
   const notificationID = searchParams.get('id');
@@ -157,10 +173,10 @@ function Notifications({ columnMode, columnAccount }) {
       const results = await adapter.getNotifications({ limit: NOTIFICATIONS_LIMIT, cursor });
 
       cursorRef.current = results.nextCursor;
-      const notifications = results.notifications || [];
+      const fetchedNotifications = results.notifications || [];
 
-      if (notifications?.length) {
-        notifications.forEach((notification) => {
+      if (fetchedNotifications?.length) {
+        fetchedNotifications.forEach((notification) => {
           if (notification.status) {
             saveStatus(notification.status, instance, {
               skipThreading: true,
@@ -169,31 +185,32 @@ function Notifications({ columnMode, columnAccount }) {
         });
 
         // Group similar notifications (use client-side grouping for Bluesky)
-        const groupedNotifications = groupNotifications(notifications);
+        const groupedNotifications = groupNotifications(fetchedNotifications);
 
         if (firstLoad) {
-          states.notificationsLast = groupedNotifications[0];
-          states.notifications = groupedNotifications;
+          if (!columnMode) states.notificationsLast = groupedNotifications[0];
+          setNotifications(groupedNotifications);
           analyzeNotifications(groupedNotifications);
         } else {
-          states.notifications.push(...groupedNotifications);
+          appendNotifications(groupedNotifications);
         }
       }
 
-      states.notificationsShowNew = false;
-      states.notificationsLastFetchTime = Date.now();
+      if (!columnMode) states.notificationsShowNew = false;
+      if (!columnMode) states.notificationsLastFetchTime = Date.now();
       return {
         done: !results.nextCursor,
-        value: notifications,
+        value: fetchedNotifications,
       };
     }
 
     // Mastodon notification fetch
     if (firstLoad || !notificationsIterator.current) {
-      // Reset iterator
-      notificationsIterable.current = mastoFetchNotificationsIterable({
-        excludeTypes: ['follow_request'],
-      });
+      // Reset iterator - pass masto client to use correct account
+      notificationsIterable.current = mastoFetchNotificationsIterable(
+        { excludeTypes: ['follow_request'] },
+        masto
+      );
       notificationsIterator.current = notificationsIterable.current.values();
     }
     if (/max_id=($|&)/i.test(notificationsIterator.current?.nextParams)) {
@@ -204,17 +221,17 @@ function Notifications({ columnMode, columnAccount }) {
       };
     }
     const allNotifications = await notificationsIterator.current.next();
-    const notifications = massageNotifications2(allNotifications.value);
+    const fetchedNotifications = massageNotifications2(allNotifications.value);
 
-    if (notifications?.length) {
-      notifications.forEach((notification) => {
+    if (fetchedNotifications?.length) {
+      fetchedNotifications.forEach((notification) => {
         saveStatus(notification.status, instance, {
           skipThreading: true,
         });
       });
 
       // TEST: Slot in a fake notification to test 'severed_relationships'
-      // notifications.unshift({
+      // fetchedNotifications.unshift({
       //   id: '123123',
       //   type: 'severed_relationships',
       //   createdAt: '2024-03-22T19:20:08.316Z',
@@ -227,7 +244,7 @@ function Notifications({ columnMode, columnAccount }) {
       // });
 
       // TEST: Slot in a fake notification to test 'moderation_warning'
-      // notifications.unshift({
+      // fetchedNotifications.unshift({
       //   id: '123123',
       //   type: 'moderation_warning',
       //   createdAt: new Date().toISOString(),
@@ -237,31 +254,35 @@ function Notifications({ columnMode, columnAccount }) {
       //   },
       // });
 
-      // console.log({ notifications });
+      // console.log({ fetchedNotifications });
 
-      const groupedNotifications = getGroupedNotifications(notifications);
+      const groupedNotifications = getGroupedNotifications(fetchedNotifications);
 
       if (firstLoad) {
-        states.notificationsLast = groupedNotifications[0];
-        states.notifications = groupedNotifications;
+        if (!columnMode) states.notificationsLast = groupedNotifications[0];
+        setNotifications(groupedNotifications);
 
-        // Update last read marker
-        masto.v1.markers
-          .create({
-            notifications: {
-              lastReadId: groupedNotifications[0].id,
-            },
-          })
-          .catch(() => {});
+        // Update last read marker (only for main view, not columns)
+        if (!columnMode && masto) {
+          masto.v1.markers
+            .create({
+              notifications: {
+                lastReadId: groupedNotifications[0].id,
+              },
+            })
+            .catch(() => {});
+        }
 
         analyzeNotifications(groupedNotifications);
       } else {
-        states.notifications.push(...groupedNotifications);
+        appendNotifications(groupedNotifications);
       }
     }
 
-    states.notificationsShowNew = false;
-    states.notificationsLastFetchTime = Date.now();
+    if (!columnMode) {
+      states.notificationsShowNew = false;
+      states.notificationsLastFetchTime = Date.now();
+    }
     return allNotifications;
   }
 
@@ -520,7 +541,7 @@ function Notifications({ columnMode, columnAccount }) {
   const todayDate = new Date();
   const yesterdayDate = new Date(todayDate - 24 * 60 * 60 * 1000);
   let currentDay = new Date();
-  const showTodayEmpty = !snapStates.notifications.some(
+  const showTodayEmpty = !notifications.some(
     (notification) =>
       new Date(notification.createdAt).toDateString() ===
       todayDate.toDateString(),
@@ -982,9 +1003,9 @@ function Notifications({ columnMode, columnAccount }) {
             {uiState === 'default' ? t`You're all caught up.` : <>&hellip;</>}
           </p>
         )}
-        {snapStates.notifications.length ? (
+        {notifications.length ? (
           <FilterContext.Provider value="notifications">
-            {snapStates.notifications
+            {notifications
               // This is leaked from Notifications popover
               .filter((n) => n.type !== 'follow_request')
               .map((notification) => {
