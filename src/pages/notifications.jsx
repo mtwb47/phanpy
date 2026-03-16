@@ -972,7 +972,7 @@ function Notifications({ columnMode, columnAccount }) {
         )}
         {!!hasAnalyzedFirstLoad && (
           <div id="mentions-option">
-            {showMentionsLink ? (
+            {showMentionsLink && !columnMode ? (
               <Link to="/mentions" class="button plain">
                 <Icon icon="at" />{' '}
                 <span>
