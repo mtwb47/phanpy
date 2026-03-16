@@ -5,10 +5,11 @@ services:
       context: .
       target: development
     ports:
-      - "5173:5173"
+      - "5174:5173"
     volumes:
       - .:/app
       - /app/node_modules
+      - /app/src/iconify-icons
     environment:
       - NODE_ENV=development
     profiles:
@@ -20,7 +21,7 @@ services:
       context: .
       target: production
     ports:
-      - "8080:80"
+      - "8070:80"
     environment:
       - NODE_ENV=production
     restart: unless-stopped
