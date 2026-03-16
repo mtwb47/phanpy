@@ -4,14 +4,14 @@
 Phanpy
 ===
 
-**Minimalistic opinionated Mastodon web client.**
+**Minimalistic opinionated Mastodon and Bluesky web client.**
 </div>
 
 ![Fancy screenshot](readme-assets/fancy-screenshot.jpg)
 
 **🗣️ Pronunciation**: `/fænpi/` ([`FAN-pee`](https://www.smogon.com/forums/threads/the-official-name-pronunciation-guide.3474941/)) [🔊 Listen](https://www.youtube.com/watch?v=DIUbWe-ysJI)
 
-This is an alternative web client for [Mastodon](https://joinmastodon.org/).
+This is an alternative web client for [Mastodon](https://joinmastodon.org/) and [Bluesky](https://bsky.app/).
 
 - 🏢 **Production**: https://phanpy.social [![Uptime Robot status](https://img.shields.io/uptimerobot/status/m795572454-df4518f96a3784401b550a6c)](https://stats.uptimerobot.com/rVO1RkbwMB)
   - ![GitHub Release](https://img.shields.io/github/v/release/cheeaun/phanpy)
@@ -31,15 +31,17 @@ Everything is designed and engineered following my taste and vision. This is a p
 
 ## Features
 
+- 🦋 **Bluesky support** - Connect your Bluesky account alongside Mastodon
 - 👪 Multiple accounts
 - 🪟 Compose window pop-out/in
 - 🌗 Light/dark/auto theme
 - 🔔 Grouped notifications
 - 🪺 Nested comments thread
-- 📬 Unsent draft recovery
-- 🎠 Boosts Carousel™️
-- ⚡ Shortcuts™️ with view modes like multi-column or tab bar
-- #️⃣ Multi-hashtag timeline
+- 📬 Unsent draft recovery
+- 🎠 Boosts Carousel™️
+- ⚡ **Shortcuts™️** with multi-column view - each column can be tied to a specific account
+- #️⃣ Multi-hashtag timeline
+- ✍️ **Multi-account compose** - Post to multiple accounts simultaneously
 
 ## Design decisions
 
@@ -137,6 +139,7 @@ Prerequisites: Node.js 20+
 - [Valtio](https://valtio.pmnd.rs/) - State management
 - [React Router](https://reactrouter.com/) - Routing
 - [masto.js](https://github.com/neet/masto.js/) - Mastodon API client
+- [@atproto/api](https://github.com/bluesky-social/atproto) - Bluesky API client
 - [Iconify](https://iconify.design/) - Icon library
   - [MingCute icons](https://www.mingcute.com/)
 - [Lingui](https://lingui.dev/) - Internationalization
@@ -160,13 +163,13 @@ Users can change the language in the settings, which sets the `localStorage` key
 
 *Inspired by [Translate WordPress Handbook](https://make.wordpress.org/polyglots/handbook/):
 
-- [Don’t translate literally, translate organically](https://make.wordpress.org/polyglots/handbook/translating/expectations/#dont-translate-literally-translate-organically).
+- [Don't translate literally, translate organically](https://make.wordpress.org/polyglots/handbook/translating/expectations/#dont-translate-literally-translate-organically).
 - [Try to keep the same level of formality (or informality)](https://make.wordpress.org/polyglots/handbook/translating/expectations/#try-to-keep-the-same-level-of-formality-or-informality)
-- [Don’t use slang or audience-specific terms](https://make.wordpress.org/polyglots/handbook/translating/expectations/#try-to-keep-the-same-level-of-formality-or-informality)
+- [Don't use slang or audience-specific terms](https://make.wordpress.org/polyglots/handbook/translating/expectations/#try-to-keep-the-same-level-of-formality-or-informality)
 - Be attentive to placeholders for variables. Many strings have placesholders e.g. `{account}` (variable), `<0>{name}</0>` (tag with variable) and `#` (number placeholder).
 - [Ellipsis](https://en.wikipedia.org/wiki/Ellipsis) (…) is intentional. Don't remove it.
   - Nielsen Norman Group: ["Include Ellipses in Command Text to Indicate When More Information Is Required"](https://www.nngroup.com/articles/ui-copy/)
-  - Apple Human Interface Guidelines: ["Append an ellipsis to a menu item’s label when the action requires more information before it can complete. The ellipsis character (…) signals that people need to input information or make additional choices, typically within another view."](https://developer.apple.com/design/human-interface-guidelines/menus)
+  - Apple Human Interface Guidelines: ["Append an ellipsis to a menu item's label when the action requires more information before it can complete. The ellipsis character (…) signals that people need to input information or make additional choices, typically within another view."](https://developer.apple.com/design/human-interface-guidelines/menus)
   - Windows App Development: ["Ellipses mean incompleteness."](https://learn.microsoft.com/en-us/windows/win32/uxguide/text-ui)
 - Date timestamps, date ranges, numbers, language names and text segmentation are handled by the [ECMAScript Internationalization API](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl).
   - [`Intl.DateTimeFormat`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/DateTimeFormat) - e.g. "8 Aug", "08/08/2024"
