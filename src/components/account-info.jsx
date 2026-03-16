@@ -11,7 +11,7 @@ import {
   useState,
 } from 'preact/hooks';
 
-import { api, getAdapter, isBlueskyAccount } from '../utils/api';
+import { api, getAdapter, getBlueskyAdapter, isBlueskyAccount } from '../utils/api';
 import { detectPlatform, PLATFORM_BLUESKY } from '../utils/platforms/index.js';
 import enhanceContent from '../utils/enhance-content';
 import getDomain from '../utils/get-domain';
@@ -171,19 +171,16 @@ function AccountInfo({
       return;
     }
 
-    // For Bluesky, if current account is not Bluesky, skip fetching
-    // (cross-platform profile viewing not yet supported)
-    if (viewingBlueskyAccount && !currentAccountIsBluesky) {
-      setUIState('default');
-      return;
-    }
-
     setUIState('loading');
     (async () => {
       try {
         let info;
-        if (currentAccountIsBluesky) {
-          const adapter = await getAdapter();
+        if (viewingBlueskyAccount) {
+          // Get Bluesky adapter (might be different from current account)
+          const adapter = await getBlueskyAdapter();
+          if (!adapter) {
+            throw new Error('No Bluesky account logged in');
+          }
           // Extract handle from account string if needed
           const handle = account.includes('@')
             ? account.split('@')[0]
@@ -201,7 +198,7 @@ function AccountInfo({
         setUIState('error');
       }
     })();
-  }, [isString, account, fetchAccount, currentAccountIsBluesky, viewingBlueskyAccount]);
+  }, [isString, account, fetchAccount, viewingBlueskyAccount]);
 
   const {
     acct,

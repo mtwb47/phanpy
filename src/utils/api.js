@@ -452,8 +452,38 @@ export function clearAdapterCache(accountId, instanceURL) {
  * @returns {boolean}
  */
 export function isBlueskyAccount(account) {
-  const acc = account || getCurrentAcc();
-  return getAccountPlatform(acc) === PLATFORM_BLUESKY;
+  try {
+    const acc = account || getCurrentAcc();
+    const platform = getAccountPlatform(acc);
+    console.log('isBlueskyAccount check:', { acc: acc?.info?.username, platform, instanceURL: acc?.instanceURL });
+    return platform === PLATFORM_BLUESKY;
+  } catch (e) {
+    console.warn('isBlueskyAccount error:', e);
+    return false;
+  }
+}
+
+/**
+ * Get Bluesky account if one exists (regardless of current account)
+ * @returns {Object|null}
+ */
+export function getBlueskyAccount() {
+  try {
+    const accounts = store.local.getJSON('accounts') || [];
+    return accounts.find((a) => a.platform === PLATFORM_BLUESKY) || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Get adapter for Bluesky account specifically
+ * @returns {Promise<import('./platforms/types.js').PlatformAdapter|null>}
+ */
+export async function getBlueskyAdapter() {
+  const blueskyAccount = getBlueskyAccount();
+  if (!blueskyAccount) return null;
+  return getAdapter({ account: blueskyAccount });
 }
 
 /**

@@ -53,12 +53,11 @@ export function getCurrentAccountID() {
     const id = store.session.get('currentAccount');
     if (id) return id;
   } catch (e) {}
-  if (standaloneMQ?.matches) {
-    try {
-      const id = store.local.get('currentAccount');
-      if (id) return id;
-    } catch (e) {}
-  }
+  // Always check localStorage as fallback (survives page refresh)
+  try {
+    const id = store.local.get('currentAccount');
+    if (id) return id;
+  } catch (e) {}
   return null;
 }
 
@@ -72,11 +71,10 @@ export function setCurrentAccountID(id) {
   try {
     store.session.set('currentAccount', id);
   } catch (e) {}
-  if (standaloneMQ?.matches) {
-    try {
-      store.local.set('currentAccount', id);
-    } catch (e) {}
-  }
+  // Always persist to localStorage so it survives page refresh
+  try {
+    store.local.set('currentAccount', id);
+  } catch (e) {}
 }
 
 export function getCurrentAccount() {

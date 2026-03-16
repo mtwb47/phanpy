@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { useSnapshot } from 'valtio';
 
 import Timeline from '../components/timeline';
-import { api, getAdapter, isBlueskyAccount } from '../utils/api';
+import { api, getAdapter, getBlueskyAccount, isBlueskyAccount } from '../utils/api';
 import { filteredItems } from '../utils/filters';
 import states, { getStatus, saveStatus } from '../utils/states';
 import supports from '../utils/supports';
