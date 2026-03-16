@@ -62,9 +62,11 @@
   color: var(--text-insignificant-color);
 }
 
-.compose-account-selector .platform-icon {
-  font-size: 1em;
+.compose-account-selector .platform-logo {
+  height: 1.2em;
+  width: auto;
   margin-left: auto;
+  opacity: 0.7;
 }
 
 /* Single account mode - just show info */

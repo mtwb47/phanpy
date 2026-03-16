@@ -18,6 +18,7 @@ import { useSnapshot } from 'valtio';
 import { subscribeKey } from 'valtio/utils';
 
 import AccountBlock from '../components/account-block';
+import ColumnTitle from '../components/column-title';
 import FollowRequestButtons from '../components/follow-request-buttons';
 import Icon from '../components/icon';
 import Link from '../components/link';
@@ -669,9 +670,13 @@ function Notifications({ columnMode, columnAccount }) {
                 <Icon icon="home" size="l" alt={t`Home`} />
               </Link>
             </div>
-            <h1>
-              <Trans>Notifications</Trans>
-            </h1>
+            {columnAccount ? (
+              <ColumnTitle title={t`Notifications`} account={columnAccount} />
+            ) : (
+              <h1>
+                <Trans>Notifications</Trans>
+              </h1>
+            )}
             <div class="header-side">
               {supportsFilteredNotifications && (
                 <button

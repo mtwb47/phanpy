@@ -2,6 +2,7 @@ import { useLingui } from '@lingui/react/macro';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { useSnapshot } from 'valtio';
 
+import ColumnTitle from '../components/column-title';
 import Timeline from '../components/timeline';
 import { api, getAdapter, getBlueskyAccount, isBlueskyAccount } from '../utils/api';
 import { filteredItems } from '../utils/filters';
@@ -226,9 +227,16 @@ function Following({ title, path, id, columnAccount, ...props }) {
     };
   }, [streamingClient, isBluesky]);
 
+  const timelineTitle = title || t({ id: 'following.title', message: 'Following' });
+
   return (
     <Timeline
-      title={title || t({ id: 'following.title', message: 'Following' })}
+      title={timelineTitle}
+      titleComponent={
+        columnAccount ? (
+          <ColumnTitle title={timelineTitle} account={columnAccount} />
+        ) : undefined
+      }
       id={id || 'following'}
       emptyText={t`Nothing to see here.`}
       errorText={t`Unable to load posts.`}

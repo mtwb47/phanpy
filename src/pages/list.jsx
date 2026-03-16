@@ -8,6 +8,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useSnapshot } from 'valtio';
 
 import AccountBlock from '../components/account-block';
+import ColumnTitle from '../components/column-title';
 import Icon from '../components/icon';
 import ListAddEdit from '../components/list-add-edit';
 import ListExclusiveBadge from '../components/list-exclusive-badge';
@@ -106,6 +107,11 @@ function List(props) {
       <Timeline
         key={id}
         title={list.title}
+        titleComponent={
+          columnAccount ? (
+            <ColumnTitle title={list.title} account={columnAccount} />
+          ) : undefined
+        }
         id="list"
         emptyText={t`Nothing yet.`}
         errorText={t`Unable to load posts.`}

@@ -1,0 +1,8 @@
+/* Column title with platform logo */
+h1 .platform-logo {
+  height: 1em;
+  width: auto;
+  vertical-align: middle;
+  margin-right: 0.3em;
+  opacity: 0.8;
+}

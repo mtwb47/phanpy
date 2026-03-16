@@ -1,6 +1,7 @@
-import { Trans, useLingui } from '@lingui/react/macro';
+import { useLingui } from '@lingui/react/macro';
 import { useRef } from 'preact/hooks';
 
+import ColumnTitle from '../components/column-title';
 import Timeline from '../components/timeline';
 import { api } from '../utils/api';
 import useTitle from '../utils/useTitle';
@@ -22,9 +23,16 @@ function Favourites({ columnAccount }) {
     return await favouritesIterator.current.next();
   }
 
+  const title = t`Likes`;
+
   return (
     <Timeline
-      title={t`Likes`}
+      title={title}
+      titleComponent={
+        columnAccount ? (
+          <ColumnTitle title={title} account={columnAccount} />
+        ) : undefined
+      }
       id="favourites"
       emptyText={t`No likes yet. Go like something!`}
       errorText={t`Unable to load likes.`}

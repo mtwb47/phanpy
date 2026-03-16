@@ -1,6 +1,7 @@
 import { useLingui } from '@lingui/react/macro';
 import { useRef } from 'preact/hooks';
 
+import ColumnTitle from '../components/column-title';
 import Timeline from '../components/timeline';
 import { api } from '../utils/api';
 import useTitle from '../utils/useTitle';
@@ -22,9 +23,16 @@ function Bookmarks({ columnAccount }) {
     return await bookmarksIterator.current.next();
   }
 
+  const title = t`Bookmarks`;
+
   return (
     <Timeline
-      title={t`Bookmarks`}
+      title={title}
+      titleComponent={
+        columnAccount ? (
+          <ColumnTitle title={title} account={columnAccount} />
+        ) : undefined
+      }
       id="bookmarks"
       emptyText={t`No bookmarks yet. Go bookmark something!`}
       errorText={t`Unable to load bookmarks.`}

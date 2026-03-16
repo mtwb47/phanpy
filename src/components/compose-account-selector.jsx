@@ -3,12 +3,14 @@ import './compose-account-selector.css';
 import { Trans, useLingui } from '@lingui/react/macro';
 import { useMemo } from 'preact/hooks';
 
+import blueskyLogo from '../assets/bluesky-logo.svg';
+import mastodonLogo from '../assets/mastodon-logo.svg';
 import { PLATFORM_BLUESKY, PLATFORM_MASTODON } from '../utils/platforms/types.js';
 import { getAccounts, getAccountPlatform } from '../utils/store-utils';
 
-const PLATFORM_ICONS = {
-  [PLATFORM_BLUESKY]: '🦋',
-  [PLATFORM_MASTODON]: '🐘',
+const PLATFORM_LOGOS = {
+  [PLATFORM_BLUESKY]: blueskyLogo,
+  [PLATFORM_MASTODON]: mastodonLogo,
 };
 
 const PLATFORM_NAMES = {
@@ -114,7 +116,8 @@ function ComposeAccountSelector({
         const isDisabled =
           disabled ||
           (replyToPlatform && account.platform !== replyToPlatform);
-        const platformIcon = PLATFORM_ICONS[account.platform] || '🌐';
+        const platformLogo = PLATFORM_LOGOS[account.platform];
+        const platformName = PLATFORM_NAMES[account.platform];
 
         return (
           <label
@@ -123,7 +126,7 @@ function ComposeAccountSelector({
             title={
               isDisabled && replyToPlatform
                 ? t`Replies must be on the same platform`
-                : `${account.info.username} (${PLATFORM_NAMES[account.platform]})`
+                : `${account.info.username} (${platformName})`
             }
           >
             <input
@@ -147,7 +150,13 @@ function ComposeAccountSelector({
                   `@${account.instanceURL.replace(/^https?:\/\//, '')}`}
               </span>
             </span>
-            <span className="platform-icon">{platformIcon}</span>
+            {platformLogo && (
+              <img
+                src={platformLogo}
+                alt={platformName}
+                className="platform-logo"
+              />
+            )}
           </label>
         );
       })}
@@ -168,4 +177,4 @@ function ComposeAccountSelector({
 }
 
 export default ComposeAccountSelector;
-export { PLATFORM_ICONS, PLATFORM_NAMES };
+export { PLATFORM_LOGOS, PLATFORM_NAMES };

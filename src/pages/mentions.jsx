@@ -4,6 +4,7 @@ import { Trans, useLingui } from '@lingui/react/macro';
 import { useMemo, useRef, useState } from 'preact/hooks';
 import { useSearchParams } from 'react-router-dom';
 
+import ColumnTitle from '../components/column-title';
 import Link from '../components/link';
 import Timeline from '../components/timeline';
 import { api } from '../utils/api';
@@ -252,9 +253,16 @@ function Mentions({ columnMode, columnAccount, ...props }) {
     );
   }, [type, onlyFollowings]);
 
+  const title = t`Mentions`;
+
   return (
     <Timeline
-      title={t`Mentions`}
+      title={title}
+      titleComponent={
+        columnAccount ? (
+          <ColumnTitle title={title} account={columnAccount} />
+        ) : undefined
+      }
       id="mentions"
       emptyText={t`No one mentioned you :(`}
       errorText={t`Unable to load mentions.`}
