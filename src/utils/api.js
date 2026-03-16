@@ -417,7 +417,9 @@ const platformAdapters = {};
  * @returns {Promise<import('./platforms/types.js').PlatformAdapter>}
  */
 export async function getAdapter({ account, accountID } = {}) {
-  const targetAccount = account || getAccount(accountID) || getCurrentAcc();
+  // Only use getAccount(accountID) if accountID is actually provided
+  // Otherwise getAccount(undefined) returns the first account, not null
+  const targetAccount = account || (accountID ? getAccount(accountID) : null) || getCurrentAcc();
   if (!targetAccount) {
     throw new Error('No account available');
   }
