@@ -1,9 +1,10 @@
-import { useLingui } from '@lingui/react/macro';
+import { Trans, useLingui } from '@lingui/react/macro';
 import { useRef } from 'preact/hooks';
 
 import ColumnTitle from '../components/column-title';
+import Icon from '../components/icon';
 import Timeline from '../components/timeline';
-import { api } from '../utils/api';
+import { api, isBlueskyAccount } from '../utils/api';
 import useTitle from '../utils/useTitle';
 
 const LIMIT = 20;
@@ -11,6 +12,41 @@ const LIMIT = 20;
 function Bookmarks({ columnAccount }) {
   const { t } = useLingui();
   useTitle(t`Bookmarks`, '/b');
+
+  // Detect if this is a Bluesky account
+  const targetAccount = columnAccount || null;
+  const isBluesky = targetAccount
+    ? isBlueskyAccount(targetAccount)
+    : isBlueskyAccount();
+
+  // Bluesky doesn't support bookmarks
+  if (isBluesky) {
+    const title = t`Bookmarks`;
+    return (
+      <div class="deck-container">
+        <div class="timeline-deck deck">
+          <header>
+            <div class="header-grid">
+              <div class="header-side" />
+              {columnAccount ? (
+                <ColumnTitle title={title} account={columnAccount} />
+              ) : (
+                <h1>{title}</h1>
+              )}
+              <div class="header-side" />
+            </div>
+          </header>
+          <div class="ui-state">
+            <Icon icon="bookmark" size="xxl" />
+            <p>
+              <Trans>Bookmarks are not supported on Bluesky.</Trans>
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Use columnAccount if provided for column-specific API calls
   const { masto, instance } = api(columnAccount ? { account: columnAccount } : undefined);
   const bookmarksIterator = useRef();

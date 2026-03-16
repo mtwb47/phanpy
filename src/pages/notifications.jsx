@@ -27,7 +27,7 @@ import Modal from '../components/modal';
 import NavMenu from '../components/nav-menu';
 import Notification from '../components/notification';
 import Status from '../components/status';
-import { api } from '../utils/api';
+import { api, getAdapter, isBlueskyAccount } from '../utils/api';
 import enhanceContent from '../utils/enhance-content';
 import FilterContext from '../utils/filter-context';
 import groupNotifications, {
@@ -110,8 +110,21 @@ const NOTIFICATIONS_POLICIES_TEXT = {
 function Notifications({ columnMode, columnAccount }) {
   const { _, t } = useLingui();
   useTitle(t`Notifications`, '/notifications');
+
+  // Detect if this is a Bluesky account
+  const targetAccount = columnAccount || null;
+  const isBluesky = targetAccount
+    ? isBlueskyAccount(targetAccount)
+    : isBlueskyAccount();
+
   // Use columnAccount if provided for column-specific API calls
-  const { masto, instance } = api(columnAccount ? { account: columnAccount } : undefined);
+  const { masto, instance } = isBluesky
+    ? { masto: null, instance: targetAccount?.instanceURL || 'bsky.social' }
+    : api(columnAccount ? { account: columnAccount } : undefined);
+
+  const adapterRef = useRef();
+  const cursorRef = useRef();
+
   const snapStates = useSnapshot(states);
   const [uiState, setUIState] = useState('default');
   const [searchParams] = columnMode ? [emptySearchParams] : useSearchParams();
@@ -135,6 +148,47 @@ function Notifications({ columnMode, columnAccount }) {
   const notificationsIterable = useRef();
   const notificationsIterator = useRef();
   async function fetchNotifications(firstLoad) {
+    // Bluesky notification fetch
+    if (isBluesky) {
+      const adapter = adapterRef.current || (await getAdapter(targetAccount ? { account: targetAccount } : undefined));
+      adapterRef.current = adapter;
+
+      const cursor = firstLoad ? undefined : cursorRef.current;
+      const results = await adapter.getNotifications({ limit: NOTIFICATIONS_LIMIT, cursor });
+
+      cursorRef.current = results.nextCursor;
+      const notifications = results.notifications || [];
+
+      if (notifications?.length) {
+        notifications.forEach((notification) => {
+          if (notification.status) {
+            saveStatus(notification.status, instance, {
+              skipThreading: true,
+            });
+          }
+        });
+
+        // Group similar notifications (simplified for Bluesky)
+        const groupedNotifications = getGroupedNotifications(notifications);
+
+        if (firstLoad) {
+          states.notificationsLast = groupedNotifications[0];
+          states.notifications = groupedNotifications;
+          analyzeNotifications(groupedNotifications);
+        } else {
+          states.notifications.push(...groupedNotifications);
+        }
+      }
+
+      states.notificationsShowNew = false;
+      states.notificationsLastFetchTime = Date.now();
+      return {
+        done: !results.nextCursor,
+        value: notifications,
+      };
+    }
+
+    // Mastodon notification fetch
     if (firstLoad || !notificationsIterator.current) {
       // Reset iterator
       notificationsIterable.current = mastoFetchNotificationsIterable({
@@ -212,6 +266,9 @@ function Notifications({ columnMode, columnAccount }) {
   }
 
   async function fetchFollowRequests() {
+    // Bluesky doesn't have follow requests in the same way
+    if (isBluesky) return [];
+
     // Note: no pagination here yet because this better be on a separate page. Should be rare use-case???
     try {
       return await masto.v1.followRequests.list({
@@ -237,6 +294,9 @@ function Notifications({ columnMode, columnAccount }) {
   };
 
   async function fetchAnnouncements() {
+    // Bluesky doesn't have announcements
+    if (isBluesky) return [];
+
     try {
       return await masto.v1.announcements.list();
     } catch (e) {
@@ -245,7 +305,7 @@ function Notifications({ columnMode, columnAccount }) {
     }
   }
 
-  const supportsFilteredNotifications = supports(
+  const supportsFilteredNotifications = !isBluesky && supports(
     '@mastodon/filtered-notifications',
   );
   const [showNotificationsSettings, setShowNotificationsSettings] =

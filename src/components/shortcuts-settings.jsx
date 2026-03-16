@@ -53,6 +53,15 @@ const TYPES = [
   // NOTE: Hide for now
   // 'account-statuses', // Need @acct search first
 ];
+
+// Types that are not supported on Bluesky
+const BLUESKY_UNSUPPORTED_TYPES = [
+  'bookmarks', // Bluesky doesn't have bookmarks
+  'favourites', // Bluesky doesn't expose a "my likes" endpoint
+  'public', // Bluesky doesn't have local/federated timelines
+  'trending', // Bluesky handles trending differently
+  'hashtag', // Bluesky hashtags work differently
+];
 const TYPE_TEXT = {
   following: msg`Home / Following`,
   notifications: msg`Notifications`,
@@ -568,6 +577,20 @@ function ShortcutForm({
   console.log('shortcut', shortcut);
   const editMode = !!shortcut;
   const [currentType, setCurrentType] = useState(shortcut?.type || null);
+  const [selectedAccountId, setSelectedAccountId] = useState(shortcut?.accountId || '');
+
+  // Filter types based on selected account's platform
+  const availableTypes = useMemo(() => {
+    if (!selectedAccountId) {
+      return TYPES;
+    }
+    const allAccounts = getAccounts();
+    const selectedAccount = allAccounts.find((a) => getAccountKey(a) === selectedAccountId);
+    if (selectedAccount && getAccountPlatform(selectedAccount) === PLATFORM_BLUESKY) {
+      return TYPES.filter((type) => !BLUESKY_UNSUPPORTED_TYPES.includes(type));
+    }
+    return TYPES;
+  }, [selectedAccountId]);
 
   const [uiState, setUIState] = useState('default');
   const [lists, setLists] = useState([]);
@@ -656,6 +679,52 @@ function ShortcutForm({
             onClose?.();
           }}
         >
+          {/* Account selector first - affects which timeline types are available */}
+          {getAccounts().length > 1 && (
+            <p>
+              <label>
+                <span>
+                  <Trans>Account</Trans>
+                </span>
+                <select
+                  name="accountId"
+                  disabled={disabled}
+                  defaultValue={editMode ? shortcut.accountId : ''}
+                  dir="auto"
+                  onChange={(e) => {
+                    const newAccountId = e.target.value;
+                    setSelectedAccountId(newAccountId);
+                    // Reset type if it's not supported by the new account
+                    if (currentType && BLUESKY_UNSUPPORTED_TYPES.includes(currentType)) {
+                      const allAccounts = getAccounts();
+                      const selectedAccount = allAccounts.find((a) => getAccountKey(a) === newAccountId);
+                      if (selectedAccount && getAccountPlatform(selectedAccount) === PLATFORM_BLUESKY) {
+                        setCurrentType(null);
+                      }
+                    }
+                  }}
+                >
+                  <option value="">
+                    <Trans>Current account</Trans>
+                  </option>
+                  {getAccounts().map((account) => {
+                    const key = getAccountKey(account);
+                    const platform = getAccountPlatform(account);
+                    const icon = platform === PLATFORM_BLUESKY ? '🦋' : '🐘';
+                    return (
+                      <option value={key} key={key}>
+                        {icon} {account.info.displayName || account.info.username}
+                        {platform === PLATFORM_MASTODON &&
+                          ` (@${account.info.username}@${account.instanceURL.replace(/^https?:\/\//, '')})`}
+                        {platform === PLATFORM_BLUESKY &&
+                          ` (@${account.info.username})`}
+                      </option>
+                    );
+                  })}
+                </select>
+              </label>
+            </p>
+          )}
           <p>
             <label>
               <span>
@@ -672,7 +741,7 @@ function ShortcutForm({
                 dir="auto"
               >
                 <option></option>
-                {TYPES.map((type) => (
+                {availableTypes.map((type) => (
                   <option value={type}>{_(TYPE_TEXT[type])}</option>
                 ))}
               </select>
@@ -681,47 +750,9 @@ function ShortcutForm({
           {TYPE_PARAMS[currentType]?.map?.(
             ({ text, name, type, placeholder, pattern, notRequired }) => {
               // Handle account-select type
+              // Account selector is handled at the top of the form now
               if (type === 'account-select') {
-                const allAccounts = getAccounts();
-                // Only show if there are multiple accounts
-                if (allAccounts.length <= 1) return null;
-
-                const platformIcons = {
-                  [PLATFORM_BLUESKY]: '🦋',
-                  [PLATFORM_MASTODON]: '🐘',
-                };
-
-                return (
-                  <p key={name}>
-                    <label>
-                      <span>{_(text)}</span>
-                      <select
-                        name={name}
-                        disabled={disabled}
-                        defaultValue={editMode ? shortcut[name] : ''}
-                        dir="auto"
-                      >
-                        <option value="">
-                          <Trans>Current account</Trans>
-                        </option>
-                        {allAccounts.map((account) => {
-                          const key = getAccountKey(account);
-                          const platform = getAccountPlatform(account);
-                          const icon = platformIcons[platform] || '🌐';
-                          return (
-                            <option value={key} key={key}>
-                              {icon} {account.info.displayName || account.info.username}
-                              {platform === PLATFORM_MASTODON &&
-                                ` (@${account.info.username}@${account.instanceURL.replace(/^https?:\/\//, '')})`}
-                              {platform === PLATFORM_BLUESKY &&
-                                ` (@${account.info.username})`}
-                            </option>
-                          );
-                        })}
-                      </select>
-                    </label>
-                  </p>
-                );
+                return null;
               }
 
               if (currentType === 'list' && name === 'id') {

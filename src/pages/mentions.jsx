@@ -1,13 +1,14 @@
 import './mentions.css';
 
 import { Trans, useLingui } from '@lingui/react/macro';
-import { useMemo, useRef, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useSearchParams } from 'react-router-dom';
 
 import ColumnTitle from '../components/column-title';
+import Icon from '../components/icon';
 import Link from '../components/link';
 import Timeline from '../components/timeline';
-import { api } from '../utils/api';
+import { api, getAdapter, isBlueskyAccount } from '../utils/api';
 import { fixNotifications } from '../utils/group-notifications';
 import { fetchRelationships } from '../utils/relationships';
 import { saveStatus } from '../utils/states';
@@ -19,8 +20,20 @@ const emptySearchParams = new URLSearchParams();
 
 function Mentions({ columnMode, columnAccount, ...props }) {
   const { t } = useLingui();
+
+  // Detect if this is a Bluesky account
+  const targetAccount = columnAccount || null;
+  const isBluesky = targetAccount
+    ? isBlueskyAccount(targetAccount)
+    : isBlueskyAccount();
+
   // Use columnAccount if provided for column-specific API calls
-  const { masto, instance } = api(columnAccount ? { account: columnAccount } : undefined);
+  const { masto, instance } = isBluesky
+    ? { masto: null, instance: targetAccount?.instanceURL || 'bsky.social' }
+    : api(columnAccount ? { account: columnAccount } : undefined);
+
+  const adapterRef = useRef();
+  const cursorRef = useRef();
   const [searchParams] = columnMode ? [emptySearchParams] : useSearchParams();
   const [stateType, setStateType] = useState(null);
   const type = props?.type || searchParams.get('type') || stateType;
@@ -31,6 +44,15 @@ function Mentions({ columnMode, columnAccount, ...props }) {
 
   const mentionsIterator = useRef();
   const latestItem = useRef();
+
+  // Initialize adapter for Bluesky
+  useEffect(() => {
+    if (isBluesky) {
+      getAdapter(targetAccount ? { account: targetAccount } : undefined).then((adapter) => {
+        adapterRef.current = adapter;
+      });
+    }
+  }, [isBluesky, targetAccount]);
 
   function filterByFollowings(items) {
     if (!onlyFollowings || !items?.length) return items;
@@ -51,6 +73,45 @@ function Mentions({ columnMode, columnAccount, ...props }) {
   }
 
   async function fetchMentions(firstLoad) {
+    // Bluesky mentions fetch - filter notifications by mention/reply type
+    if (isBluesky) {
+      const adapter = adapterRef.current || (await getAdapter(targetAccount ? { account: targetAccount } : undefined));
+      adapterRef.current = adapter;
+
+      const cursor = firstLoad ? undefined : cursorRef.current;
+      const results = await adapter.getNotifications({ limit: LIMIT, cursor });
+
+      cursorRef.current = results.nextCursor;
+      // Filter to only mention/reply type notifications
+      let notifications = (results.notifications || []).filter(
+        (n) => n.type === 'mention' || n.type === 'reply'
+      );
+
+      if (notifications?.length) {
+        if (firstLoad) {
+          latestItem.current = notifications[0].id;
+        }
+
+        notifications.forEach((n) => {
+          if (n.status) {
+            saveStatus(n.status, instance);
+          }
+        });
+
+        let statuses = notifications.map((n) => n.status).filter(Boolean);
+        return {
+          done: !results.nextCursor,
+          value: statuses,
+        };
+      }
+
+      return {
+        done: !results.nextCursor,
+        value: [],
+      };
+    }
+
+    // Mastodon mentions fetch
     if (firstLoad || !mentionsIterator.current) {
       mentionsIterator.current = masto.v1.notifications
         .list({
@@ -103,6 +164,11 @@ function Mentions({ columnMode, columnAccount, ...props }) {
   const conversationsIterator = useRef();
   const latestConversationItem = useRef();
   async function fetchConversations(firstLoad) {
+    // Bluesky doesn't have private conversations in the same way
+    if (isBluesky) {
+      return { done: true, value: [] };
+    }
+
     if (firstLoad || !conversationsIterator.current) {
       conversationsIterator.current = masto.v1.conversations
         .list({
@@ -160,6 +226,24 @@ function Mentions({ columnMode, columnAccount, ...props }) {
   }
 
   async function checkForUpdates() {
+    // Bluesky update check
+    if (isBluesky) {
+      try {
+        const adapter = adapterRef.current || (await getAdapter(targetAccount ? { account: targetAccount } : undefined));
+        const results = await adapter.getNotifications({ limit: 5 });
+        const mentions = (results.notifications || []).filter(
+          (n) => n.type === 'mention' || n.type === 'reply'
+        );
+        if (mentions?.length && mentions[0].id !== latestItem.current) {
+          latestItem.current = mentions[0].id;
+          return true;
+        }
+        return false;
+      } catch (e) {
+        return false;
+      }
+    }
+
     if (type === 'private') {
       try {
         const results = await masto.v1.conversations
@@ -211,47 +295,51 @@ function Mentions({ columnMode, columnAccount, ...props }) {
   const TimelineStart = useMemo(() => {
     return (
       <>
-        <div id="followings-option">
-          <label>
-            <input
-              type="checkbox"
-              checked={onlyFollowings}
-              onChange={(e) => {
-                setOnlyFollowings(e.target.checked);
+        {!isBluesky && (
+          <div id="followings-option">
+            <label>
+              <input
+                type="checkbox"
+                checked={onlyFollowings}
+                onChange={(e) => {
+                  setOnlyFollowings(e.target.checked);
+                }}
+              />{' '}
+              <Trans>Only followings</Trans>
+            </label>
+          </div>
+        )}
+        {!isBluesky && (
+          <div class="filter-bar">
+            <Link
+              to="/mentions"
+              class={!type ? 'is-active' : ''}
+              onClick={(e) => {
+                if (columnMode) {
+                  e.preventDefault();
+                  setStateType(null);
+                }
               }}
-            />{' '}
-            <Trans>Only followings</Trans>
-          </label>
-        </div>
-        <div class="filter-bar">
-          <Link
-            to="/mentions"
-            class={!type ? 'is-active' : ''}
-            onClick={(e) => {
-              if (columnMode) {
-                e.preventDefault();
-                setStateType(null);
-              }
-            }}
-          >
-            <Trans>All</Trans>
-          </Link>
-          <Link
-            to="/mentions?type=private"
-            class={type === 'private' ? 'is-active' : ''}
-            onClick={(e) => {
-              if (columnMode) {
-                e.preventDefault();
-                setStateType('private');
-              }
-            }}
-          >
-            <Trans>Private</Trans>
-          </Link>
-        </div>
+            >
+              <Trans>All</Trans>
+            </Link>
+            <Link
+              to="/mentions?type=private"
+              class={type === 'private' ? 'is-active' : ''}
+              onClick={(e) => {
+                if (columnMode) {
+                  e.preventDefault();
+                  setStateType('private');
+                }
+              }}
+            >
+              <Trans>Private</Trans>
+            </Link>
+          </div>
+        )}
       </>
     );
-  }, [type, onlyFollowings]);
+  }, [type, onlyFollowings, isBluesky]);
 
   const title = t`Mentions`;
 
