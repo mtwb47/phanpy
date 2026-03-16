@@ -32,6 +32,7 @@ function MediaModal({
   index = 0,
   onClose = () => {},
 }) {
+  console.log('DEBUG MediaModal mediaAttachments:', JSON.stringify(mediaAttachments, null, 2));
   const { t } = useLingui();
   const [uiState, setUIState] = useState('default');
   const carouselRef = useRef(null);
