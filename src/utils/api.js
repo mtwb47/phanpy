@@ -477,8 +477,17 @@ export function isBlueskyAccount(account) {
   try {
     const acc = account || getCurrentAcc();
     const platform = getAccountPlatform(acc);
-    console.log('isBlueskyAccount check:', { acc: acc?.info?.username, platform, instanceURL: acc?.instanceURL });
-    return platform === PLATFORM_BLUESKY;
+    const result = platform === PLATFORM_BLUESKY;
+    console.warn('🔍 isBlueskyAccount check:', {
+      providedAccount: !!account,
+      username: acc?.info?.username,
+      platform,
+      expectedPlatform: PLATFORM_BLUESKY,
+      result,
+      instanceURL: acc?.instanceURL,
+      hasDid: !!acc?.did,
+    });
+    return result;
   } catch (e) {
     console.warn('isBlueskyAccount error:', e);
     return false;

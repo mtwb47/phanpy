@@ -117,6 +117,16 @@ function Notifications({ columnMode, columnAccount }) {
     ? isBlueskyAccount(targetAccount)
     : isBlueskyAccount();
 
+  console.warn('🔔 Notifications component DEBUG:', {
+    columnMode,
+    columnAccountExists: !!columnAccount,
+    targetAccountExists: !!targetAccount,
+    isBluesky,
+    columnAccountPlatform: columnAccount?.platform,
+    columnAccountDid: columnAccount?.did,
+    columnAccountInstanceURL: columnAccount?.instanceURL,
+  });
+
   // Use columnAccount if provided for column-specific API calls
   const { masto, instance } = isBluesky
     ? { masto: null, instance: targetAccount?.instanceURL || 'bsky.social' }

@@ -57,6 +57,14 @@ function Columns() {
     // Resolve column account if specified
     const columnAccount = accountId ? resolveAccountByKey(accountId) : null;
 
+    console.warn('📊 Columns resolving shortcut:', {
+      type,
+      accountId,
+      columnAccountExists: !!columnAccount,
+      columnAccountPlatform: columnAccount?.platform,
+      columnAccountDid: columnAccount?.did,
+    });
+
     // If profile, provide the account ID (from column account or current)
     if (type === 'profile') {
       params.id = columnAccount?.info?.id || getCurrentAccountID();
