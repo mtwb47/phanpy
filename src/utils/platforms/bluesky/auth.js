@@ -161,22 +161,22 @@ export async function refreshSession({ refreshJwt, service = DEFAULT_SERVICE }) 
 /**
  * Create a new BskyAgent with stored credentials
  * @param {Object} account - Account from store
- * @returns {BskyAgent}
+ * @returns {Promise<BskyAgent>}
  */
-export function createBlueskyAgent(account) {
+export async function createBlueskyAgent(account) {
   const agent = new BskyAgent({
     service: account.pds || DEFAULT_SERVICE,
   });
 
-  // Set up session
+  // Resume session with stored credentials
   if (account.accessToken && account.refreshJwt && account.did) {
-    agent.session = {
+    await agent.resumeSession({
       accessJwt: account.accessToken,
       refreshJwt: account.refreshJwt,
       handle: account.info?.username || '',
       did: account.did,
       active: true,
-    };
+    });
   }
 
   return agent;
@@ -189,7 +189,7 @@ export function createBlueskyAgent(account) {
  */
 export async function validateSession(account) {
   try {
-    const agent = createBlueskyAgent(account);
+    const agent = await createBlueskyAgent(account);
     await agent.getProfile({ actor: account.did });
     return true;
   } catch (error) {

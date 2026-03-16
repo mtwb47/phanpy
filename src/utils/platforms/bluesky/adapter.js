@@ -35,6 +35,8 @@ export class BlueskyAdapter {
     maxMediaAttachments: 4,
   };
 
+  #agentPromise = null;
+
   /**
    * @param {Object} account - Account object from store
    */
@@ -42,17 +44,27 @@ export class BlueskyAdapter {
     this.account = account;
     this.did = account.did;
     this.pds = account.pds || 'https://bsky.social';
+  }
 
-    this.agent = createBlueskyAgent(account);
-
-    // Set up session refresh handler
-    this.agent.sessionManager?.on?.('session:update', (session) => {
-      console.log('Bluesky session refreshed');
-      updateBlueskySession(this.did, {
-        accessJwt: session.accessJwt,
-        refreshJwt: session.refreshJwt,
+  /**
+   * Get or create the agent (lazy initialization)
+   * @returns {Promise<BskyAgent>}
+   */
+  async getAgent() {
+    if (!this.#agentPromise) {
+      this.#agentPromise = createBlueskyAgent(this.account).then((agent) => {
+        // Set up session refresh handler
+        agent.sessionManager?.on?.('session:update', (session) => {
+          console.log('Bluesky session refreshed');
+          updateBlueskySession(this.did, {
+            accessJwt: session.accessJwt,
+            refreshJwt: session.refreshJwt,
+          });
+        });
+        return agent;
       });
-    });
+    }
+    return this.#agentPromise;
   }
 
   /**
@@ -78,7 +90,7 @@ export class BlueskyAdapter {
    * @param {Object} options
    */
   async getHomeTimeline({ limit = 50, cursor } = {}) {
-    const response = await this.agent.getTimeline({
+    const response = await (await this.getAgent()).getTimeline({
       limit,
       cursor,
     });
@@ -97,7 +109,7 @@ export class BlueskyAdapter {
    */
   async getPublicTimeline({ limit = 50, cursor } = {}) {
     // Use the "What's Hot" feed as public timeline equivalent
-    const response = await this.agent.app.bsky.feed.getFeed({
+    const response = await (await this.getAgent()).app.bsky.feed.getFeed({
       feed: 'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/whats-hot',
       limit,
       cursor,
@@ -117,7 +129,7 @@ export class BlueskyAdapter {
    * @param {Object} options
    */
   async getCustomFeed(feedUri, { limit = 50, cursor } = {}) {
-    const response = await this.agent.app.bsky.feed.getFeed({
+    const response = await (await this.getAgent()).app.bsky.feed.getFeed({
       feed: feedUri,
       limit,
       cursor,
@@ -140,7 +152,7 @@ export class BlueskyAdapter {
     actorId,
     { limit = 50, cursor, includeReplies = false } = {},
   ) {
-    const response = await this.agent.getAuthorFeed({
+    const response = await (await this.getAgent()).getAuthorFeed({
       actor: actorId,
       limit,
       cursor,
@@ -165,7 +177,7 @@ export class BlueskyAdapter {
     const author = parts[2];
     const rkey = parts[4];
 
-    const response = await this.agent.getPostThread({
+    const response = await (await this.getAgent()).getPostThread({
       uri,
       depth: 0,
       parentHeight: 0,
@@ -186,7 +198,7 @@ export class BlueskyAdapter {
    * @param {string} uri - AT URI
    */
   async getStatusContext(uri) {
-    const response = await this.agent.getPostThread({
+    const response = await (await this.getAgent()).getPostThread({
       uri,
       depth: 100,
       parentHeight: 100,
@@ -230,7 +242,7 @@ export class BlueskyAdapter {
    * Verify credentials (get current user profile)
    */
   async verifyCredentials() {
-    const response = await this.agent.getProfile({ actor: this.did });
+    const response = await (await this.getAgent()).getProfile({ actor: this.did });
     return normalizeAccount(response.data);
   }
 
@@ -239,7 +251,7 @@ export class BlueskyAdapter {
    * @param {string} actorId - Handle or DID
    */
   async getAccount(actorId) {
-    const response = await this.agent.getProfile({ actor: actorId });
+    const response = await (await this.getAgent()).getProfile({ actor: actorId });
     return normalizeAccount(response.data);
   }
 
@@ -248,7 +260,7 @@ export class BlueskyAdapter {
    * @param {string} actorId - Handle or DID
    */
   async getRelationship(actorId) {
-    const response = await this.agent.getProfile({ actor: actorId });
+    const response = await (await this.getAgent()).getProfile({ actor: actorId });
     return normalizeRelationship(response.data.viewer, response.data.did);
   }
 
@@ -257,7 +269,7 @@ export class BlueskyAdapter {
    * @param {string} did - DID to follow
    */
   async follow(did) {
-    await this.agent.follow(did);
+    await (await this.getAgent()).follow(did);
     // Re-fetch relationship
     return this.getRelationship(did);
   }
@@ -268,11 +280,11 @@ export class BlueskyAdapter {
    */
   async unfollow(did) {
     // Get the follow record URI first
-    const response = await this.agent.getProfile({ actor: did });
+    const response = await (await this.getAgent()).getProfile({ actor: did });
     const followUri = response.data.viewer?.following;
 
     if (followUri) {
-      await this.agent.deleteFollow(followUri);
+      await (await this.getAgent()).deleteFollow(followUri);
     }
 
     return this.getRelationship(did);
@@ -288,7 +300,7 @@ export class BlueskyAdapter {
    * @param {string} cid - Content ID
    */
   async favourite(uri, cid) {
-    await this.agent.like(uri, cid);
+    await (await this.getAgent()).like(uri, cid);
     // Return updated status
     return this.getStatus(uri);
   }
@@ -303,7 +315,7 @@ export class BlueskyAdapter {
     const likeUri = status._viewer?.like;
 
     if (likeUri) {
-      await this.agent.deleteLike(likeUri);
+      await (await this.getAgent()).deleteLike(likeUri);
     }
 
     return this.getStatus(uri);
@@ -315,7 +327,7 @@ export class BlueskyAdapter {
    * @param {string} cid - Content ID
    */
   async reblog(uri, cid) {
-    await this.agent.repost(uri, cid);
+    await (await this.getAgent()).repost(uri, cid);
     return this.getStatus(uri);
   }
 
@@ -328,7 +340,7 @@ export class BlueskyAdapter {
     const repostUri = status._viewer?.repost;
 
     if (repostUri) {
-      await this.agent.deleteRepost(repostUri);
+      await (await this.getAgent()).deleteRepost(repostUri);
     }
 
     return this.getStatus(uri);
@@ -353,7 +365,7 @@ export class BlueskyAdapter {
    * @param {string} uri - AT URI
    */
   async mute(uri) {
-    await this.agent.muteThread(uri);
+    await (await this.getAgent()).muteThread(uri);
     return this.getStatus(uri);
   }
 
@@ -362,7 +374,7 @@ export class BlueskyAdapter {
    * @param {string} uri - AT URI
    */
   async unmute(uri) {
-    await this.agent.unmuteThread(uri);
+    await (await this.getAgent()).unmuteThread(uri);
     return this.getStatus(uri);
   }
 
@@ -473,7 +485,7 @@ export class BlueskyAdapter {
       }
     }
 
-    const response = await this.agent.post(postRecord);
+    const response = await (await this.getAgent()).post(postRecord);
 
     // Fetch and return the created post
     return this.getStatus(response.uri);
@@ -484,7 +496,7 @@ export class BlueskyAdapter {
    * @param {string} uri - AT URI
    */
   async deleteStatus(uri) {
-    await this.agent.deletePost(uri);
+    await (await this.getAgent()).deletePost(uri);
   }
 
   /**
@@ -501,7 +513,7 @@ export class BlueskyAdapter {
       height = dimensions.height;
     }
 
-    const response = await this.agent.uploadBlob(file, {
+    const response = await (await this.getAgent()).uploadBlob(file, {
       encoding: file.type,
     });
 
@@ -531,7 +543,7 @@ export class BlueskyAdapter {
    * @param {Object} options
    */
   async getNotifications({ limit = 50, cursor } = {}) {
-    const response = await this.agent.listNotifications({
+    const response = await (await this.getAgent()).listNotifications({
       limit,
       cursor,
     });
@@ -564,7 +576,7 @@ export class BlueskyAdapter {
    * Mark notifications as seen
    */
   async clearNotifications() {
-    await this.agent.updateSeenNotifications();
+    await (await this.getAgent()).updateSeenNotifications();
   }
 
   // ========================================
@@ -585,7 +597,7 @@ export class BlueskyAdapter {
 
     if (!type || type === 'accounts') {
       try {
-        const actorsResponse = await this.agent.searchActors({
+        const actorsResponse = await (await this.getAgent()).searchActors({
           q: query,
           limit,
           cursor,
@@ -598,7 +610,7 @@ export class BlueskyAdapter {
 
     if (!type || type === 'statuses') {
       try {
-        const postsResponse = await this.agent.app.bsky.feed.searchPosts({
+        const postsResponse = await (await this.getAgent()).app.bsky.feed.searchPosts({
           q: query,
           limit,
           cursor,
@@ -622,7 +634,7 @@ export class BlueskyAdapter {
    * Get user's saved feeds
    */
   async getSavedFeeds() {
-    const response = await this.agent.app.bsky.actor.getPreferences();
+    const response = await (await this.getAgent()).app.bsky.actor.getPreferences();
     const savedFeeds = response.data.preferences.find(
       (p) => p.$type === 'app.bsky.actor.defs#savedFeedsPrefV2',
     );
@@ -634,7 +646,7 @@ export class BlueskyAdapter {
    * @param {string} feedUri
    */
   async getFeedGenerator(feedUri) {
-    const response = await this.agent.app.bsky.feed.getFeedGenerator({
+    const response = await (await this.getAgent()).app.bsky.feed.getFeedGenerator({
       feed: feedUri,
     });
     return response.data;
