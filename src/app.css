@@ -60,6 +60,25 @@ a[href^='http'][rel*='nofollow']:visited:not(:has(div)) {
   flex-grow: 1;
   /* This `transform` fixes carousel blocking vertical scrolling for pointer devices on iPad */
   transform: translateZ(0);
+
+  /* Modern thin scrollbars */
+  scrollbar-width: thin;
+  scrollbar-color: var(--outline-color) transparent;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--outline-color);
+    border-radius: 3px;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background-color: var(--text-insignificant-color);
+  }
 }
 
 @media (hover: hover) {
@@ -119,6 +138,24 @@ a[href^='http'][rel*='nofollow']:visited:not(:has(div)) {
   height: 100vh;
   height: 100dvh;
   overscroll-behavior: contain;
+
+  /* Modern thin scrollbars */
+  scrollbar-width: thin;
+  scrollbar-color: var(--outline-color) transparent;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--outline-color);
+    border-radius: 3px;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background-color: var(--text-insignificant-color);
+  }
 }
 @media (hover: hover) {
   .deck.contained {
@@ -2734,20 +2771,34 @@ ul.link-list li a .icon {
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   scroll-behavior: smooth;
-  /* scrollbar-width: none; */
   overscroll-behavior: contain;
   overscroll-behavior-x: contain;
   /* This `transform` fixes horizontal scrolling for pointer devices on iPad */
   transform: translateZ(0);
+
+  /* Modern thin scrollbars */
+  scrollbar-width: thin;
+  scrollbar-color: var(--outline-color) transparent;
+
+  &::-webkit-scrollbar {
+    height: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--outline-color);
+    border-radius: 3px;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background-color: var(--text-insignificant-color);
+  }
 
   /* 360px * 2 */
   @media (min-width: 720px) {
     scroll-snap-type: none;
   }
 }
-/* #columns::-webkit-scrollbar {
-  display: none;
-} */
 #columns > * {
   overscroll-behavior: auto;
   scroll-snap-align: start;
