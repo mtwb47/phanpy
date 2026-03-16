@@ -1,7 +1,12 @@
-import { api } from './api';
+import { api, isBlueskyAccount } from './api';
 import pmem from './pmem';
 
 async function _isSearchEnabled(instance) {
+  // Bluesky has search, but uses different API
+  if (isBlueskyAccount()) {
+    return true;
+  }
+
   const { masto } = api({ instance });
   const results = await masto.v2.search.list({
     q: 'from:me',

@@ -4,7 +4,7 @@ import { MenuDivider, MenuItem } from '@szhsin/react-menu';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import punycode from 'punycode/';
 
-import { api } from '../utils/api';
+import { api, isBlueskyAccount } from '../utils/api';
 import i18nDuration from '../utils/i18n-duration';
 import isSearchEnabled from '../utils/is-search-enabled';
 import niceDateTime from '../utils/nice-date-time';
@@ -98,6 +98,11 @@ function RelatedActions({
   const supportsEndorsements = supports('@mastodon/endorsements');
 
   useEffect(() => {
+    // Skip relationship fetching for Bluesky accounts (uses different API)
+    if (isBlueskyAccount()) {
+      return;
+    }
+
     if (info) {
       const currentAccount = getCurrentAccountID();
       let currentID;

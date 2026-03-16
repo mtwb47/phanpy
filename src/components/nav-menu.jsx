@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useLongPress } from 'use-long-press';
 import { useSnapshot } from 'valtio';
 
-import { api } from '../utils/api';
+import { api, isBlueskyAccount } from '../utils/api';
 import { getLists } from '../utils/lists';
 import safeBoundingBoxPadding from '../utils/safe-bounding-box-padding';
 import states from '../utils/states';
@@ -417,7 +417,7 @@ function NavMenu(props) {
 }
 
 function ListMenu({ menuState }) {
-  const supportsLists = supports('@mastodon/lists');
+  const supportsLists = supports('@mastodon/lists') && !isBlueskyAccount();
   const [lists, setLists] = useState([]);
   useEffect(() => {
     if (!supportsLists) return;

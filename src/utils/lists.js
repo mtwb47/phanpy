@@ -1,4 +1,4 @@
-import { api } from './api';
+import { api, isBlueskyAccount } from './api';
 import pmem from './pmem';
 import store from './store';
 
@@ -7,6 +7,11 @@ const MAX_AGE = 24 * 60 * 60 * 1000; // 1 day
 
 export const fetchLists = pmem(
   async () => {
+    // Skip for Bluesky accounts (uses different API)
+    if (isBlueskyAccount()) {
+      return [];
+    }
+
     const { masto } = api();
     const lists = await masto.v1.lists.list();
     lists.sort((a, b) => a.title.localeCompare(b.title));
