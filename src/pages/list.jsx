@@ -27,7 +27,9 @@ const LIMIT = 20;
 function List(props) {
   const { t } = useLingui();
   const snapStates = useSnapshot(states);
-  const { masto, instance } = api();
+  // Use columnAccount if provided for column-specific API calls
+  const { columnAccount } = props;
+  const { masto, instance } = api(columnAccount ? { account: columnAccount } : undefined);
   const id = props?.id || useParams()?.id;
   // const navigate = useNavigate();
   const latestItem = useRef();

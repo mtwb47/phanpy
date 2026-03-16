@@ -7,10 +7,11 @@ import useTitle from '../utils/useTitle';
 
 const LIMIT = 20;
 
-function Bookmarks() {
+function Bookmarks({ columnAccount }) {
   const { t } = useLingui();
   useTitle(t`Bookmarks`, '/b');
-  const { masto, instance } = api();
+  // Use columnAccount if provided for column-specific API calls
+  const { masto, instance } = api(columnAccount ? { account: columnAccount } : undefined);
   const bookmarksIterator = useRef();
   async function fetchBookmarks(firstLoad) {
     if (firstLoad || !bookmarksIterator.current) {

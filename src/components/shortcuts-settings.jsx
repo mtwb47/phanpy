@@ -17,11 +17,18 @@ import tabMenuBarUrl from '../assets/tab-menu-bar.svg';
 import { api } from '../utils/api';
 import { fetchFollowedTags } from '../utils/followed-tags';
 import { getLists, getListTitle } from '../utils/lists';
+import { PLATFORM_BLUESKY, PLATFORM_MASTODON } from '../utils/platforms/types.js';
 import pmem from '../utils/pmem';
 import showToast from '../utils/show-toast';
 import states from '../utils/states';
 import store from '../utils/store';
-import { getCurrentAccount, getCurrentAccountID } from '../utils/store-utils';
+import {
+  getAccountKey,
+  getAccountPlatform,
+  getAccounts,
+  getCurrentAccount,
+  getCurrentAccountID,
+} from '../utils/store-utils';
 
 import AsyncText from './AsyncText';
 import Icon from './icon';
@@ -60,13 +67,27 @@ const TYPE_TEXT = {
   mentions: msg`Mentions`,
   profile: msg`Profile`,
 };
+// Account selector param for types that support per-account columns
+const ACCOUNT_PARAM = {
+  text: msg`Account`,
+  name: 'accountId',
+  type: 'account-select',
+  notRequired: true,
+};
+
 const TYPE_PARAMS = {
+  following: [ACCOUNT_PARAM],
+  notifications: [ACCOUNT_PARAM],
+  mentions: [ACCOUNT_PARAM],
+  bookmarks: [ACCOUNT_PARAM],
+  favourites: [ACCOUNT_PARAM],
   list: [
     {
       text: msg`List ID`,
       name: 'id',
       notRequired: true,
     },
+    ACCOUNT_PARAM,
   ],
   public: [
     {
@@ -129,6 +150,7 @@ const TYPE_PARAMS = {
       notRequired: true,
     },
   ],
+  profile: [ACCOUNT_PARAM],
 };
 const fetchAccountTitle = pmem(async ({ id }) => {
   const account = await api().masto.v1.accounts.$select(id).fetch();
@@ -658,9 +680,53 @@ function ShortcutForm({
           </p>
           {TYPE_PARAMS[currentType]?.map?.(
             ({ text, name, type, placeholder, pattern, notRequired }) => {
-              if (currentType === 'list') {
+              // Handle account-select type
+              if (type === 'account-select') {
+                const allAccounts = getAccounts();
+                // Only show if there are multiple accounts
+                if (allAccounts.length <= 1) return null;
+
+                const platformIcons = {
+                  [PLATFORM_BLUESKY]: '🦋',
+                  [PLATFORM_MASTODON]: '🐘',
+                };
+
                 return (
-                  <p>
+                  <p key={name}>
+                    <label>
+                      <span>{_(text)}</span>
+                      <select
+                        name={name}
+                        disabled={disabled}
+                        defaultValue={editMode ? shortcut[name] : ''}
+                        dir="auto"
+                      >
+                        <option value="">
+                          <Trans>Current account</Trans>
+                        </option>
+                        {allAccounts.map((account) => {
+                          const key = getAccountKey(account);
+                          const platform = getAccountPlatform(account);
+                          const icon = platformIcons[platform] || '🌐';
+                          return (
+                            <option value={key} key={key}>
+                              {icon} {account.info.displayName || account.info.username}
+                              {platform === PLATFORM_MASTODON &&
+                                ` (@${account.info.username}@${account.instanceURL.replace(/^https?:\/\//, '')})`}
+                              {platform === PLATFORM_BLUESKY &&
+                                ` (@${account.info.username})`}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </label>
+                  </p>
+                );
+              }
+
+              if (currentType === 'list' && name === 'id') {
+                return (
+                  <p key={name}>
                     <label>
                       <span>
                         <Trans>List</Trans>
@@ -683,7 +749,7 @@ function ShortcutForm({
               }
 
               return (
-                <p>
+                <p key={name}>
                   <label>
                     <span>{_(text)}</span>{' '}
                     <input

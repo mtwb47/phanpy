@@ -106,10 +106,11 @@ const NOTIFICATIONS_POLICIES_TEXT = {
   forLimitedAccounts: msg`Who are limited by server moderators`,
 };
 
-function Notifications({ columnMode }) {
+function Notifications({ columnMode, columnAccount }) {
   const { _, t } = useLingui();
   useTitle(t`Notifications`, '/notifications');
-  const { masto, instance } = api();
+  // Use columnAccount if provided for column-specific API calls
+  const { masto, instance } = api(columnAccount ? { account: columnAccount } : undefined);
   const snapStates = useSnapshot(states);
   const [uiState, setUIState] = useState('default');
   const [searchParams] = columnMode ? [emptySearchParams] : useSearchParams();

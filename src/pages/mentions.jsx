@@ -16,9 +16,10 @@ import useTitle from '../utils/useTitle';
 const LIMIT = 20;
 const emptySearchParams = new URLSearchParams();
 
-function Mentions({ columnMode, ...props }) {
+function Mentions({ columnMode, columnAccount, ...props }) {
   const { t } = useLingui();
-  const { masto, instance } = api();
+  // Use columnAccount if provided for column-specific API calls
+  const { masto, instance } = api(columnAccount ? { account: columnAccount } : undefined);
   const [searchParams] = columnMode ? [emptySearchParams] : useSearchParams();
   const [stateType, setStateType] = useState(null);
   const type = props?.type || searchParams.get('type') || stateType;

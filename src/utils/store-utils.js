@@ -283,3 +283,44 @@ export function updateBlueskySession(did, session) {
 export function getAccountPlatform(account) {
   return account?.platform || PLATFORM_MASTODON;
 }
+
+/**
+ * Get a unique key for an account
+ * @param {Object} account
+ * @returns {string}
+ */
+export function getAccountKey(account) {
+  if (account.did) {
+    return account.did;
+  }
+  return `${account.info.id}@${account.instanceURL}`;
+}
+
+/**
+ * Resolve an account by its unique key
+ * @param {string} accountKey - DID (Bluesky) or id@instance (Mastodon)
+ * @returns {Object|null}
+ */
+export function resolveAccountByKey(accountKey) {
+  if (!accountKey) return null;
+
+  const accounts = getAccounts();
+
+  // Check if it's a Bluesky DID
+  if (accountKey.startsWith('did:')) {
+    return accounts.find((a) => a.did === accountKey) || null;
+  }
+
+  // Otherwise it's id@instance format
+  const [id, instance] = accountKey.split('@');
+  if (!id || !instance) return null;
+
+  return (
+    accounts.find(
+      (a) =>
+        a.info.id === id &&
+        a.instanceURL.replace(/^https?:\/\//, '').toLowerCase() ===
+          instance.toLowerCase(),
+    ) || null
+  );
+}

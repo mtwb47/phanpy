@@ -15,7 +15,7 @@ import Search from '../pages/search';
 import Trending from '../pages/trending';
 import isRTL from '../utils/is-rtl';
 import states from '../utils/states';
-import { getCurrentAccountID } from '../utils/store-utils';
+import { getCurrentAccountID, resolveAccountByKey } from '../utils/store-utils';
 import useTitle from '../utils/useTitle';
 
 const scrollIntoViewOptions = {
@@ -34,7 +34,7 @@ function Columns() {
 
   const components = shortcuts.map((shortcut) => {
     if (!shortcut) return null;
-    const { type, ...params } = shortcut;
+    const { type, accountId, ...params } = shortcut;
     const Component = {
       following: Following,
       notifications: Notifications,
@@ -53,12 +53,21 @@ function Columns() {
     if (type === 'search' && !params.query) return null;
     // Don't show List column with no list, for now
     if (type === 'list' && !params.id) return null;
-    // If profile, provide the account ID
+
+    // Resolve column account if specified
+    const columnAccount = accountId ? resolveAccountByKey(accountId) : null;
+
+    // If profile, provide the account ID (from column account or current)
     if (type === 'profile') {
-      params.id = getCurrentAccountID();
+      params.id = columnAccount?.info?.id || getCurrentAccountID();
     }
     return (
-      <Component key={type + JSON.stringify(params)} {...params} columnMode />
+      <Component
+        key={type + JSON.stringify(params) + (accountId || '')}
+        {...params}
+        columnMode
+        columnAccount={columnAccount}
+      />
     );
   });
 

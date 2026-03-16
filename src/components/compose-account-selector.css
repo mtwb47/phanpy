@@ -1,0 +1,106 @@
+.compose-account-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px;
+  background: var(--bg-faded-color);
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.compose-account-selector .account-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background: var(--bg-color);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.compose-account-selector .account-option:hover {
+  background: var(--bg-blur-color);
+}
+
+.compose-account-selector .account-option.selected {
+  border-color: var(--link-color);
+  background: var(--link-light-color);
+}
+
+.compose-account-selector .account-option.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.compose-account-selector .account-option input[type="checkbox"] {
+  display: none;
+}
+
+.compose-account-selector .account-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.compose-account-selector .account-info {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.compose-account-selector .account-name {
+  font-weight: 600;
+  font-size: 0.85em;
+}
+
+.compose-account-selector .account-handle {
+  font-size: 0.75em;
+  color: var(--text-insignificant-color);
+}
+
+.compose-account-selector .platform-icon {
+  font-size: 1em;
+  margin-left: auto;
+}
+
+/* Single account mode - just show info */
+.compose-account-selector.single-account {
+  padding: 4px 8px;
+  background: transparent;
+}
+
+.compose-account-selector.single-account .account-option {
+  background: transparent;
+  cursor: default;
+  padding: 0;
+}
+
+.compose-account-selector.single-account .account-option:hover {
+  background: transparent;
+}
+
+/* Constraints warning */
+.compose-account-selector .constraints-warning {
+  width: 100%;
+  margin-top: 4px;
+  padding: 4px 8px;
+  font-size: 0.8em;
+  color: var(--text-insignificant-color);
+  background: var(--bg-color);
+  border-radius: 4px;
+}
+
+.compose-account-selector .constraints-warning .constraint-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.compose-account-selector .constraints-warning .constraint-item::before {
+  content: "•";
+  color: var(--link-color);
+}

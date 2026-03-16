@@ -16,7 +16,7 @@ import useTitle from '../utils/useTitle';
 
 const LIMIT = 20;
 
-function Following({ title, path, id, ...props }) {
+function Following({ title, path, id, columnAccount, ...props }) {
   const { t } = useLingui();
   useTitle(
     title ||
@@ -27,14 +27,18 @@ function Following({ title, path, id, ...props }) {
     path || '/following',
   );
 
-  // Check platform first before calling api()
-  const isBluesky = isBlueskyAccount();
-  console.log('Following page - isBluesky:', isBluesky);
+  // Use columnAccount if provided, otherwise check current account
+  const targetAccount = columnAccount || null;
+  const isBluesky = targetAccount
+    ? isBlueskyAccount(targetAccount)
+    : isBlueskyAccount();
+  console.log('Following page - isBluesky:', isBluesky, 'columnAccount:', !!columnAccount);
 
   // Only get Mastodon API client if not Bluesky
+  // For column mode with specific account, use that account's API
   const { masto, streaming, instance, client } = isBluesky
-    ? { masto: null, streaming: null, instance: 'bsky.social', client: null }
-    : api();
+    ? { masto: null, streaming: null, instance: targetAccount?.instanceURL || 'bsky.social', client: null }
+    : api(targetAccount ? { account: targetAccount } : undefined);
   const [streamingClient, setStreamingClient] = useState(streaming);
   const adapterRef = useRef();
   const cursorRef = useRef();
@@ -44,14 +48,14 @@ function Following({ title, path, id, ...props }) {
   const homeIterator = useRef();
   const latestItem = useRef();
 
-  // Initialize adapter for Bluesky
+  // Initialize adapter for Bluesky (or specific column account)
   useEffect(() => {
     if (isBluesky) {
-      getAdapter().then((adapter) => {
+      getAdapter(targetAccount ? { account: targetAccount } : undefined).then((adapter) => {
         adapterRef.current = adapter;
       });
     }
-  }, [isBluesky]);
+  }, [isBluesky, targetAccount]);
 
   // Streaming only happens after instance is initialized (Mastodon only)
   useEffect(() => {
@@ -72,7 +76,7 @@ function Following({ title, path, id, ...props }) {
     if (isBluesky) {
       console.log('Entering Bluesky fetch path');
       __BENCHMARK.start('fetch-home-first');
-      const adapter = adapterRef.current || (await getAdapter());
+      const adapter = adapterRef.current || (await getAdapter(targetAccount ? { account: targetAccount } : undefined));
       console.log('Got adapter:', adapter);
       adapterRef.current = adapter;
 
@@ -153,7 +157,7 @@ function Following({ title, path, id, ...props }) {
     try {
       // Bluesky: simple poll for new posts
       if (isBluesky) {
-        const adapter = adapterRef.current || (await getAdapter());
+        const adapter = adapterRef.current || (await getAdapter(targetAccount ? { account: targetAccount } : undefined));
         const results = await adapter.getHomeTimeline({ limit: 5 });
         const value = results.statuses;
         if (value?.length && value[0].id !== latestItem.current) {

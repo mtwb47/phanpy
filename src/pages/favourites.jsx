@@ -7,10 +7,11 @@ import useTitle from '../utils/useTitle';
 
 const LIMIT = 20;
 
-function Favourites() {
+function Favourites({ columnAccount }) {
   const { t } = useLingui();
   useTitle(t`Likes`, '/favourites');
-  const { masto, instance } = api();
+  // Use columnAccount if provided for column-specific API calls
+  const { masto, instance } = api(columnAccount ? { account: columnAccount } : undefined);
   const favouritesIterator = useRef();
   async function fetchFavourites(firstLoad) {
     if (firstLoad || !favouritesIterator.current) {

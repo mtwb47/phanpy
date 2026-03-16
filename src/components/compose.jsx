@@ -10,8 +10,9 @@ import { uid } from 'uid/single';
 import { useSnapshot } from 'valtio';
 
 import supportedLanguages from '../data/status-supported-languages';
-import { api, getPreferences } from '../utils/api';
+import { api, getAdapter, getPreferences, isBlueskyAccount } from '../utils/api';
 import db from '../utils/db';
+import { PLATFORM_BLUESKY } from '../utils/platforms/types.js';
 import { getDtfLocale } from '../utils/dtf-locale';
 import localeMatch from '../utils/locale-match';
 import localeCode2Text from '../utils/localeCode2Text';
@@ -26,10 +27,14 @@ import showToast from '../utils/show-toast';
 import states, { saveStatus } from '../utils/states';
 import store from '../utils/store';
 import {
+  getAccountKey,
+  getAccountPlatform,
+  getAccounts,
   getAPIVersions,
   getCurrentAccount,
   getCurrentAccountNS,
   getCurrentInstanceConfiguration,
+  resolveAccountByKey,
 } from '../utils/store-utils';
 import stringLength from '../utils/string-length';
 import supports from '../utils/supports';
@@ -43,6 +48,7 @@ import visibilityText from '../utils/visibility-text';
 
 import AccountBlock from './account-block';
 // import Avatar from './avatar';
+import ComposeAccountSelector, { getAccountKey as getComposeAccountKey } from './compose-account-selector';
 import CameraCaptureInput, {
   supportsCameraCapture,
 } from './camera-capture-input';
@@ -227,6 +233,48 @@ function Compose({
   const [quoteSuggestion, setQuoteSuggestion] = useState(null);
   const [localQuoteStatus, setLocalQuoteStatus] = useState(quoteStatus);
   const [quoteCleared, setQuoteCleared] = useState(false);
+
+  // Multi-account support
+  const allAccounts = useMemo(() => getAccounts(), []);
+  const hasMultipleAccounts = allAccounts.length > 1;
+
+  // Initialize with current account
+  const [selectedAccountKeys, setSelectedAccountKeys] = useState(() => {
+    const currentKey = getAccountKey(currentAccount);
+    return [currentKey];
+  });
+
+  // Determine platform constraints based on selected accounts
+  const selectedAccountsInfo = useMemo(() => {
+    const accounts = selectedAccountKeys
+      .map(resolveAccountByKey)
+      .filter(Boolean);
+    const hasBluesky = accounts.some(
+      (a) => getAccountPlatform(a) === PLATFORM_BLUESKY,
+    );
+    const hasMastodon = accounts.some(
+      (a) => getAccountPlatform(a) !== PLATFORM_BLUESKY,
+    );
+    return {
+      accounts,
+      hasBluesky,
+      hasMastodon,
+      effectiveMaxCharacters: hasBluesky ? 300 : maxCharacters,
+      supportsPoll: !hasBluesky,
+      supportsContentWarning: !hasBluesky,
+      supportsScheduled: !hasBluesky,
+      supportsCustomEmoji: !hasBluesky,
+    };
+  }, [selectedAccountKeys, maxCharacters]);
+
+  // Restrict account selection when replying
+  const replyToPlatform = useMemo(() => {
+    if (!replyToStatus) return null;
+    // Check if the reply status has a platform indicator
+    if (replyToStatus._platform === PLATFORM_BLUESKY) return PLATFORM_BLUESKY;
+    if (replyToStatus.id?.startsWith('at://')) return PLATFORM_BLUESKY;
+    return 'mastodon'; // Default to mastodon for existing statuses
+  }, [replyToStatus]);
 
   const prefs = getPreferences();
 
@@ -959,8 +1007,9 @@ function Compose({
     !!poll; /* ||
     !!currentQuoteStatus?.id; */
 
-  const cwButtonDisabled = uiState === 'loading' || !!sensitive;
+  const cwButtonDisabled = uiState === 'loading' || !!sensitive || !selectedAccountsInfo.supportsContentWarning;
   const onCWButtonClick = () => {
+    if (!selectedAccountsInfo.supportsContentWarning) return;
     setSensitive(true);
     setTimeout(() => {
       spoilerTextRef.current?.focus();
@@ -968,9 +1017,9 @@ function Compose({
   };
 
   // If maxOptions is not defined or defined and is greater than 1, show poll button
-  const showPollButton = maxOptions == null || maxOptions > 1;
+  const showPollButton = (maxOptions == null || maxOptions > 1) && selectedAccountsInfo.supportsPoll;
   const pollButtonDisabled =
-    uiState === 'loading' || !!poll || !!mediaAttachments.length; /* ||
+    uiState === 'loading' || !!poll || !!mediaAttachments.length || !selectedAccountsInfo.supportsPoll; /* ||
     !!currentQuoteStatus?.id; */
   const onPollButtonClick = () => {
     setPoll({
@@ -1012,8 +1061,8 @@ function Compose({
     },
   });
 
-  const showScheduledAt = !editStatus;
-  const scheduledAtButtonDisabled = uiState === 'loading' || !!scheduledAt;
+  const showScheduledAt = !editStatus && selectedAccountsInfo.supportsScheduled;
+  const scheduledAtButtonDisabled = uiState === 'loading' || !!scheduledAt || !selectedAccountsInfo.supportsScheduled;
   const onScheduledAtClick = () => {
     const date = new Date(Date.now() + DEFAULT_SCHEDULED_AT);
     setScheduledAt(date);
@@ -1326,148 +1375,213 @@ function Compose({
             setUIState('loading');
             (async () => {
               try {
-                console.log('MEDIA ATTACHMENTS', mediaAttachments);
-                if (mediaAttachments.length > 0) {
-                  // Upload media attachments first
-                  const mediaPromises = mediaAttachments.map((attachment) => {
-                    const { file, description, id } = attachment;
-                    console.log('UPLOADING', attachment);
-                    if (id) {
-                      // If already uploaded
-                      return attachment;
-                    } else {
-                      const params = removeNullUndefined({
-                        file,
-                        description,
-                      });
-                      return masto.v2.media.create(params).then((res) => {
-                        if (res.id) {
-                          attachment.id = res.id;
+                // Post to each selected account
+                const selectedAccounts = selectedAccountKeys
+                  .map(resolveAccountByKey)
+                  .filter(Boolean);
+
+                const postResults = await Promise.allSettled(
+                  selectedAccounts.map(async (account) => {
+                    const platform = getAccountPlatform(account);
+                    const isBluesky = platform === PLATFORM_BLUESKY;
+                    const adapter = await getAdapter({ account });
+
+                    console.log('Posting to account:', account.info.username, 'platform:', platform);
+
+                    // Handle media uploads
+                    let uploadedMedia = [];
+                    if (mediaAttachments.length > 0) {
+                      const mediaPromises = mediaAttachments.map(async (attachment) => {
+                        const { file, description, id } = attachment;
+                        console.log('UPLOADING', attachment);
+
+                        if (isBluesky) {
+                          // Bluesky: Use adapter to upload
+                          if (attachment._blob) {
+                            // Already uploaded for Bluesky
+                            return attachment;
+                          }
+                          const uploaded = await adapter.uploadMedia(file, { description });
+                          return {
+                            ...attachment,
+                            ...uploaded,
+                          };
+                        } else {
+                          // Mastodon: Use existing logic
+                          if (id) {
+                            return attachment;
+                          }
+                          const params = removeNullUndefined({ file, description });
+                          const res = await masto.v2.media.create(params);
+                          if (res.id) {
+                            attachment.id = res.id;
+                          }
+                          return { ...attachment, ...res };
                         }
-                        return res;
                       });
-                    }
-                  });
-                  const results = await Promise.allSettled(mediaPromises);
 
-                  // If any failed, return
-                  if (
-                    results.some((result) => {
-                      return result.status === 'rejected' || !result.value?.id;
-                    })
-                  ) {
-                    states.composerState.publishing = false;
-                    states.composerState.publishingError = true;
-                    setUIState('error');
-                    // Alert all the reasons
-                    results.forEach((result) => {
-                      if (result.status === 'rejected') {
-                        console.error(result);
-                        alert(result.reason || t`Attachment #${i} failed`);
+                      const results = await Promise.allSettled(mediaPromises);
+
+                      // Check for failures
+                      const failures = results.filter(
+                        (r) => r.status === 'rejected' || (!r.value?.id && !r.value?._blob),
+                      );
+                      if (failures.length > 0) {
+                        failures.forEach((result, i) => {
+                          if (result.status === 'rejected') {
+                            console.error(result);
+                          }
+                        });
+                        throw new Error(t`Media upload failed`);
                       }
-                    });
-                    return;
-                  }
 
-                  console.log({ results, mediaAttachments });
-                }
+                      uploadedMedia = results.map((r) => r.value);
+                    }
 
-                /* NOTE:
-                Using snakecase here because masto.js's `isObject` returns false for `params`, ONLY happens when opening in pop-out window. This is maybe due to `window.masto` variable being passed from the parent window. The check that failed is `x.constructor === Object`, so maybe the `Object` in new window is different than parent window's?
-                Code: https://github.com/neet/masto.js/blob/dd0d649067b6a2b6e60fbb0a96597c373a255b00/src/serializers/is-object.ts#L2
+                    // Create the post
+                    if (isBluesky) {
+                      // Bluesky post
+                      const blueskyParams = {
+                        text: status,
+                        langs: language ? [language] : undefined,
+                        images: uploadedMedia
+                          .filter((m) => m.type === 'image' || m._blob)
+                          .map((m) => ({
+                            blob: m._blob,
+                            alt: m.description || '',
+                            aspectRatio: m._aspectRatio,
+                          })),
+                      };
 
-                // TODO: Note above is no longer true in Masto.js v6. Revisit this.
-              */
-                let params = {
-                  status,
-                  // spoilerText,
-                  spoiler_text: spoilerText,
-                  language,
-                  sensitive: sensitive || sensitiveMedia,
-                  poll,
-                  // mediaIds: mediaAttachments.map((attachment) => attachment.id),
-                  media_ids: mediaAttachments.map(
-                    (attachment) => attachment.id,
-                  ),
-                };
-                if (editStatus) {
-                  if (supportsNativeQuote()) {
-                    params.quote_approval_policy = quoteApprovalPolicy;
-                  }
-                  if (
-                    supports('@mastodon') ||
-                    supports('@gotosocial/edit-media-attributes')
-                  ) {
-                    params.media_attributes = mediaAttachments.map(
-                      (attachment) => {
-                        return {
-                          id: attachment.id,
-                          description: attachment.description,
-                          // focus
-                          // thumbnail
-                        };
-                      },
-                    );
-                  }
-                } else {
-                  if (supportsNativeQuote() && currentQuoteStatus?.id) {
-                    params.quoted_status_id = currentQuoteStatus.id;
-                    params.quote_approval_policy = quoteApprovalPolicy;
-                  }
-                  params.visibility = visibility;
-                  // params.inReplyToId = replyToStatus?.id || undefined;
-                  params.in_reply_to_id = replyToStatus?.id || undefined;
-                  params.scheduled_at = scheduledAt;
-                }
-                params = removeNullUndefined(params);
-                console.log('POST', params);
+                      // Handle reply
+                      if (replyToStatus) {
+                        blueskyParams.replyToUri = replyToStatus.id;
+                        blueskyParams.replyToCid = replyToStatus._cid;
+                        // For root, check if there's an ancestor chain
+                        if (replyToStatus._rootUri) {
+                          blueskyParams.replyToRootUri = replyToStatus._rootUri;
+                          blueskyParams.replyToRootCid = replyToStatus._rootCid;
+                        }
+                      }
 
-                let newStatus;
-                if (editStatus) {
-                  newStatus = await masto.v1.statuses
-                    .$select(editStatus.id)
-                    .update(params);
-                  saveStatus(newStatus, instance, {
-                    skipThreading: true,
+                      // Handle quote
+                      if (currentQuoteStatus?.id) {
+                        blueskyParams.quoteUri = currentQuoteStatus.id;
+                        blueskyParams.quoteCid = currentQuoteStatus._cid;
+                      }
+
+                      const newStatus = await adapter.createPost(blueskyParams);
+                      return { account, newStatus, instance: account.instanceURL };
+                    } else {
+                      // Mastodon post (existing logic)
+                      let params = {
+                        status,
+                        spoiler_text: spoilerText,
+                        language,
+                        sensitive: sensitive || sensitiveMedia,
+                        poll,
+                        media_ids: uploadedMedia.map((m) => m.id),
+                      };
+
+                      if (editStatus) {
+                        if (supportsNativeQuote()) {
+                          params.quote_approval_policy = quoteApprovalPolicy;
+                        }
+                        if (
+                          supports('@mastodon') ||
+                          supports('@gotosocial/edit-media-attributes')
+                        ) {
+                          params.media_attributes = uploadedMedia.map((m) => ({
+                            id: m.id,
+                            description: m.description,
+                          }));
+                        }
+                      } else {
+                        if (supportsNativeQuote() && currentQuoteStatus?.id) {
+                          params.quoted_status_id = currentQuoteStatus.id;
+                          params.quote_approval_policy = quoteApprovalPolicy;
+                        }
+                        params.visibility = visibility;
+                        params.in_reply_to_id = replyToStatus?.id || undefined;
+                        params.scheduled_at = scheduledAt;
+                      }
+                      params = removeNullUndefined(params);
+                      console.log('POST', params);
+
+                      let newStatus;
+                      if (editStatus) {
+                        newStatus = await masto.v1.statuses
+                          .$select(editStatus.id)
+                          .update(params);
+                        saveStatus(newStatus, instance, { skipThreading: true });
+                      } else {
+                        try {
+                          newStatus = await masto.v1.statuses.create(params, {
+                            requestInit: {
+                              headers: { 'Idempotency-Key': UID.current },
+                            },
+                          });
+                        } catch (_) {
+                          newStatus = await masto.v1.statuses.create(params);
+                        }
+                      }
+                      return { account, newStatus, instance };
+                    }
+                  }),
+                );
+
+                // Check results
+                const failures = postResults.filter((r) => r.status === 'rejected');
+                if (failures.length > 0) {
+                  failures.forEach((f) => {
+                    console.error('Post failed:', f.reason);
                   });
-                } else {
-                  try {
-                    newStatus = await masto.v1.statuses.create(params, {
-                      requestInit: {
-                        headers: {
-                          'Idempotency-Key': UID.current,
-                        },
-                      },
-                    });
-                  } catch (_) {
-                    // If idempotency key fails, try again without it
-                    newStatus = await masto.v1.statuses.create(params);
+                  if (failures.length === postResults.length) {
+                    throw failures[0].reason;
                   }
+                  // Some succeeded, some failed - show partial success
+                  showToast(t`Posted to ${postResults.length - failures.length} of ${postResults.length} accounts`);
                 }
+
+                const successfulResults = postResults
+                  .filter((r) => r.status === 'fulfilled')
+                  .map((r) => r.value);
+
                 states.composerState.minimized = false;
                 states.composerState.publishing = false;
                 setUIState('default');
 
-                // Close
+                // Close with the first successful result
+                const firstResult = successfulResults[0];
                 onClose({
-                  // type: post, reply, edit
                   type: editStatus ? 'edit' : replyToStatus ? 'reply' : 'post',
-                  newStatus,
-                  instance,
+                  newStatus: firstResult?.newStatus,
+                  instance: firstResult?.instance || instance,
                   scheduledAt,
+                  allResults: successfulResults,
                 });
               } catch (e) {
                 states.composerState.publishing = false;
                 states.composerState.publishingError = true;
                 console.error(e);
-                alert(e?.reason || e);
+                alert(e?.reason || e?.message || e);
                 setUIState('error');
               }
             })();
           }}
         >
+          {/* Multi-account selector */}
+          {hasMultipleAccounts && !editStatus && (
+            <ComposeAccountSelector
+              selectedKeys={selectedAccountKeys}
+              onChange={setSelectedAccountKeys}
+              multiSelect={!replyToStatus && !currentQuoteStatus}
+              disabled={uiState === 'loading'}
+              replyToPlatform={replyToPlatform}
+            />
+          )}
           <div>
-            <div class={`compose-cw-container ${sensitive ? '' : 'collapsed'}`}>
+            <div class={`compose-cw-container ${sensitive ? '' : 'collapsed'} ${!selectedAccountsInfo.supportsContentWarning ? 'disabled' : ''}`}>
               <input
                 type="hidden"
                 name="sensitive"
@@ -1543,7 +1657,7 @@ function Compose({
               onInput={() => {
                 updateCharCount();
               }}
-              maxCharacters={maxCharacters}
+              maxCharacters={selectedAccountsInfo.effectiveMaxCharacters || maxCharacters}
               onTrigger={(action) => {
                 if (action?.name === 'custom-emojis') {
                   setShowEmoji2Picker({
@@ -1921,7 +2035,7 @@ function Compose({
               <Loader abrupt />
             ) : (
               <CharCountMeter
-                maxCharacters={maxCharacters}
+                maxCharacters={selectedAccountsInfo.effectiveMaxCharacters || maxCharacters}
                 hidden={uiState === 'loading'}
               />
             )}

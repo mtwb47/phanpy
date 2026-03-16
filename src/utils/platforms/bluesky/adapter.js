@@ -398,9 +398,11 @@ export class BlueskyAdapter {
     video,
     langs,
   }) {
+    const agent = await this.getAgent();
+
     // Build rich text with facets
     const rt = new RichText({ text });
-    await rt.detectFacets(this.agent);
+    await rt.detectFacets(agent);
 
     const postRecord = {
       text: rt.text,
