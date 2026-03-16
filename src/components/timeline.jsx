@@ -132,7 +132,10 @@ function Timeline({
         } catch (e) {
           console.error(e);
           setUIState('error');
-          if (firstLoad && !items.length && errorText) {
+          // Show specific error for session expiry
+          if (e.message?.includes('Session expired') || e.message?.includes('log in again')) {
+            showToast(e.message);
+          } else if (firstLoad && !items.length && errorText) {
             showToast(errorText);
           }
         } finally {
