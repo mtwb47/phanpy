@@ -67,14 +67,19 @@ function Following({ title, path, id, ...props }) {
   const supportsPixelfed = supports('@pixelfed/home-include-reblogs');
 
   async function fetchHome(firstLoad) {
+    console.log('fetchHome called, isBluesky:', isBluesky, 'firstLoad:', firstLoad);
     // Bluesky timeline fetch
     if (isBluesky) {
+      console.log('Entering Bluesky fetch path');
       __BENCHMARK.start('fetch-home-first');
       const adapter = adapterRef.current || (await getAdapter());
+      console.log('Got adapter:', adapter);
       adapterRef.current = adapter;
 
       const cursor = firstLoad ? undefined : cursorRef.current;
+      console.log('Fetching Bluesky timeline with cursor:', cursor);
       const results = await adapter.getHomeTimeline({ limit: LIMIT, cursor });
+      console.log('Bluesky timeline results:', results);
 
       cursorRef.current = results.nextCursor;
       let value = results.statuses;
