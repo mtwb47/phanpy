@@ -236,7 +236,7 @@ export function saveStatus(status, instance, opts) {
       const { id } = theQuote;
       const sKey = statusKey(id, instance);
       states.statuses[sKey] = theQuote;
-      const selfURL = `/${instance}/s/${id}`;
+      const selfURL = `/${instance}/s/${encodeURIComponent(id)}`;
       states.statusQuotes[key] = [
         {
           id,
@@ -251,7 +251,7 @@ export function saveStatus(status, instance, opts) {
       const { quotedStatus, state } = theQuote;
       if (quotedStatus?.id) {
         const { id, account } = quotedStatus;
-        const selfURL = `/${instance}/s/${id}`;
+        const selfURL = `/${instance}/s/${encodeURIComponent(id)}`;
         const sKey = statusKey(id, instance);
         states.statuses[sKey] = quotedStatus;
         states.statusQuotes[key] = [

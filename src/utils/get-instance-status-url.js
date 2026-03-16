@@ -32,7 +32,7 @@ export function getInstanceStatusObject(url) {
 function getInstanceStatusURL(url) {
   const { instance, id } = getInstanceStatusObject(url);
   if (instance && id) {
-    return `/${instance}/s/${id}`;
+    return `/${instance}/s/${encodeURIComponent(id)}`;
   }
   return null;
 }

@@ -477,6 +477,9 @@ function Status({
     emojiReactions,
   } = status;
 
+  // URL-encode the ID for use in links (needed for Bluesky AT URIs which contain slashes)
+  const encodedId = encodeURIComponent(id);
+
   const [languageAutoDetected, setLanguageAutoDetected] = useState(null);
   useEffect(() => {
     if (!content) return;
@@ -1340,7 +1343,7 @@ function Status({
             </MenuItem>
           ) : (
             <MenuLink
-              to={`${instance ? `/${instance}` : ''}/s/${id}?translate=1`}
+              to={`${instance ? `/${instance}` : ''}/s/${encodedId}?translate=1`}
             >
               <Icon icon="translate" />
               <span>
@@ -1402,7 +1405,7 @@ function Status({
       {!isSizeLarge && (
         <>
           <MenuLink
-            to={instance ? `/${instance}/s/${id}` : `/s/${id}`}
+            to={instance ? `/${instance}/s/${encodedId}` : `/s/${encodedId}`}
             onClick={(e) => {
               onStatusLinkClick(e, status);
             }}
@@ -2246,7 +2249,7 @@ function Status({
                   </span>
                 ) : url && !previewMode && !readOnly && !quoted ? (
                   <Link
-                    to={instance ? `/${instance}/s/${id}` : `/s/${id}`}
+                    to={instance ? `/${instance}/s/${encodedId}` : `/s/${encodedId}`}
                     onClick={(e) => {
                       if (
                         e.metaKey ||
@@ -2323,7 +2326,7 @@ function Status({
                   //   unmountOnClose
                   //   menuButton={({ open }) => (
                   //     <Link
-                  //       to={instance ? `/${instance}/s/${id}` : `/s/${id}`}
+                  //       to={instance ? `/${instance}/s/${encodedId}` : `/s/${encodedId}`}
                   //       onClick={(e) => {
                   //         e.preventDefault();
                   //         e.stopPropagation();
@@ -2640,7 +2643,7 @@ function Status({
                             showCaption
                             allowLongerCaption={!content || isSizeLarge}
                             lang={language}
-                            to={`/${instance}/s/${id}?${
+                            to={`/${instance}/s/${encodedId}?${
                               withinContext ? 'media' : 'media-only'
                             }=${i + 1}`}
                             onClick={
@@ -2681,7 +2684,7 @@ function Status({
                               !!media.description &&
                               i + 1
                             }
-                            to={`/${instance}/s/${id}?${
+                            to={`/${instance}/s/${encodedId}?${
                               withinContext ? 'media' : 'media-only'
                             }=${i + 1}`}
                             onClick={
@@ -3260,7 +3263,7 @@ const QuoteStatus = memo(({ quote, level = 0 }) => {
     <Parent id={q.instance + q.id} key={q.instance + q.id}>
       <Link
         key={q.instance + q.id}
-        to={`${q.instance ? `/${q.instance}` : ''}/s/${q.id}`}
+        to={`${q.instance ? `/${q.instance}` : ''}/s/${encodeURIComponent(q.id)}`}
         class={`status-card-link ${q.native ? 'quote-post-native' : ''}`}
         data-read-more={_(readMoreText)}
       >

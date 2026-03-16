@@ -122,7 +122,7 @@ function _unfurlMastodonLink(instance, url) {
   function handleFulfill(result) {
     const { status, instance } = result;
     const { id } = status;
-    const selfURL = `/${instance}/s/${id}`;
+    const selfURL = `/${instance}/s/${encodeURIComponent(id)}`;
     console.debug('🦦 Unfurled URL', url, id, selfURL);
     const hasCanonical = theURL !== url;
     const data = {

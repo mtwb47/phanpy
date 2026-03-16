@@ -144,7 +144,7 @@ function MediaPost({
           class={className}
           media={media}
           lang={language}
-          to={`/${instance}/s/${id}?media-only=${i + 1}`}
+          to={`/${instance}/s/${encodeURIComponent(id)}?media-only=${i + 1}`}
           onClick={
             onMediaClick ? (e) => onMediaClick(e, i, media, status) : undefined
           }

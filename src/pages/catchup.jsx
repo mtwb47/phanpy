@@ -1670,7 +1670,7 @@ function Catchup() {
                     <Fragment key={`${post.id}-${showSeparator}`}>
                       {showSeparator && <li class="separator" />}
                       <IntersectionPostLineItem
-                        to={`/${instance}/s/${id}`}
+                        to={`/${instance}/s/${encodeURIComponent(id)}`}
                         post={post}
                         root={scrollableRef.current}
                       />

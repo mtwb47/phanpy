@@ -264,8 +264,7 @@ export function normalizeStatus(post, opts = {}) {
  * @returns {import('../types.js').PhanpyMediaAttachment}
  */
 function normalizeImage(image) {
-  console.log('DEBUG normalizeImage input:', JSON.stringify(image, null, 2));
-  const result = {
+  return {
     id: image.fullsize || image.thumb,
     type: 'image',
     url: image.fullsize,
@@ -280,8 +279,6 @@ function normalizeImage(image) {
       },
     },
   };
-  console.log('DEBUG normalizeImage output:', JSON.stringify(result, null, 2));
-  return result;
 }
 
 /**
